@@ -1,0 +1,7 @@
+{"type":"summary","summary":"prior session","timestamp":"2026-07-08T03:29:00.000Z"}
+{"type":"user","timestamp":"2026-07-08T03:30:50.000Z","message":{"content":"add logging"}}
+{"type":"assistant","timestamp":"2026-07-08T03:30:56.000Z","message":{"id":"msg_A","model":"claude-sonnet-4","stop_reason":"tool_use","usage":{"input_tokens":1200,"output_tokens":500,"cache_read_input_tokens":300,"cache_creation_input_tokens":100},"content":[{"type":"thinking","thinking":"consider where"}]}}
+{"type":"assistant","timestamp":"2026-07-08T03:30:56.000Z","message":{"id":"msg_A","model":"claude-sonnet-4","stop_reason":"tool_use","usage":{"input_tokens":1200,"output_tokens":500,"cache_read_input_tokens":300,"cache_creation_input_tokens":100},"content":[{"type":"text","text":"I'll add it"}]}}
+{"type":"assistant","timestamp":"2026-07-08T03:30:56.000Z","message":{"id":"msg_A","model":"claude-sonnet-4","stop_reason":"tool_use","usage":{"input_tokens":1200,"output_tokens":500,"cache_read_input_tokens":300,"cache_creation_input_tokens":100},"content":[{"type":"tool_use","id":"toolu_1","name":"Edit","input":{"file":"x.go"}}]}}
+{"type":"user","timestamp":"2026-07-08T03:31:00.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"ok","is_error":false}]}}
+{"type":"assistant","timestamp":"2026-07-08T03:31:05.000Z","message":{"id":"msg_B","model":"claude-sonnet-4","stop_reason":"end_turn","usage":{"input_tokens":798,"output_tokens":262,"cache_read_input_tokens":100,"cache_creation_input_tokens":0},"content":[{"type":"text","text":"done"}]}}

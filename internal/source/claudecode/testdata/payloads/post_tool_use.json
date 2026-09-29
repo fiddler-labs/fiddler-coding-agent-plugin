@@ -1,0 +1,12 @@
+{
+  "session_id": "abc123",
+  "transcript_path": "/home/user/.claude/projects/x/transcript.jsonl",
+  "cwd": "/home/user/repo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "ls -la" },
+  "tool_response": { "stdout": "file1.txt\nfile2.txt", "stderr": "" },
+  "tool_use_id": "toolu_01ABC",
+  "duration_ms": 1500,
+  "permission_mode": "default"
+}

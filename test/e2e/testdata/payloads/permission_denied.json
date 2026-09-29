@@ -1,0 +1,10 @@
+{
+  "session_id": "e2e-perm",
+  "cwd": "/repo",
+  "hook_event_name": "PermissionDenied",
+  "tool_name": "Bash",
+  "tool_input": { "command": "rm -rf /tmp/x" },
+  "tool_use_id": "toolu_B",
+  "reason": "Blocked by classifier",
+  "permission_mode": "auto"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "fiddler-plugins",
+  "owner": {
+    "name": "Fiddler AI",
+    "url": "https://fiddler.ai"
+  },
+  "description": "Fiddler AI plugins for coding agents — OpenTelemetry observability that delivers enriched, correctly-nested session traces to the Fiddler platform.",
+  "plugins": [
+    {
+      "name": "fiddler-claude-code-plugin",
+      "source": "./",
+      "description": "OpenTelemetry observability for coding agent sessions.",
+      "version": "0.6.0"
+    }
+  ]
+}

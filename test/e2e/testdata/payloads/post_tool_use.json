@@ -1,0 +1,11 @@
+{
+  "session_id": "e2e-perm",
+  "cwd": "/repo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "ls" },
+  "tool_response": { "stdout": "ok" },
+  "tool_use_id": "toolu_A",
+  "duration_ms": 20,
+  "permission_mode": "default"
+}

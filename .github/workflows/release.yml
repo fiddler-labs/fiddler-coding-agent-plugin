@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    name: goreleaser
+    needs: [checks]
+    runs-on: fdl-small
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify tag matches plugin.json and marketplace.json
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+
+          # The tag must be v<semver>. The shim derives its binary download
+          # target from plugin.json's version, and Claude Code uses that same
+          # version as the plugin's update signal, so the git tag, plugin.json,
+          # and the marketplace entry must all agree or consumers silently pin
+          # to the wrong release. Fail the release before GoReleaser publishes.
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not a valid v<semver> release tag"
+            exit 1
+          fi
+
+          PLUGIN_NAME=$(jq -r '.name' .claude-plugin/plugin.json)
+          PLUGIN_VERSION=$(jq -r '.version' .claude-plugin/plugin.json)
+          if [[ "$PLUGIN_VERSION" != "$VERSION" ]]; then
+            echo "::error::.claude-plugin/plugin.json version ($PLUGIN_VERSION) does not match tag ($VERSION). Bump plugin.json before tagging."
+            exit 1
+          fi
+
+          # The marketplace entry version is optional (plugin.json wins when it
+          # is omitted), but if present it must match too.
+          MP_VERSION=$(jq -r --arg n "$PLUGIN_NAME" \
+            '.plugins[] | select(.name == $n) | .version // empty' \
+            .claude-plugin/marketplace.json)
+          if [[ -n "$MP_VERSION" && "$MP_VERSION" != "$VERSION" ]]; then
+            echo "::error::marketplace.json version for '$PLUGIN_NAME' ($MP_VERSION) does not match tag ($VERSION). Bump marketplace.json before tagging."
+            exit 1
+          fi
+
+          echo "Version guard passed: tag=$VERSION plugin.json=$PLUGIN_VERSION marketplace.json=${MP_VERSION:-<unset>}"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

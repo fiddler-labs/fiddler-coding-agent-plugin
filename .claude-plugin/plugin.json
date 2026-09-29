@@ -1,0 +1,32 @@
+{
+  "name": "fiddler-claude-code-plugin",
+  "version": "0.6.0",
+  "description": "OpenTelemetry observability for coding agent sessions. Captures enriched, correctly-nested per-turn traces with tool I/O, token usage, and developer identity, and delivers them to Fiddler.",
+  "author": {
+    "name": "Fiddler AI"
+  },
+  "homepage": "https://fiddler.ai",
+  "repository": "https://github.com/fiddler-labs/fiddler-coding-agent-plugin",
+  "license": "Apache-2.0",
+  "keywords": ["observability", "tracing", "opentelemetry", "fiddler", "otel", "coding-agent"],
+  "userConfig": {
+    "OTLP_URL": {
+      "title": "Fiddler OTLP Endpoint",
+      "description": "Fiddler OTLP/HTTP endpoint URL",
+      "type": "string",
+      "sensitive": false
+    },
+    "AUTH_TOKEN": {
+      "title": "Fiddler Ingestion Token",
+      "description": "Fiddler ingestion token (Bearer token value)",
+      "type": "string",
+      "sensitive": true
+    },
+    "APP_ID": {
+      "title": "Application ID",
+      "description": "Fiddler application.id resource attribute",
+      "type": "string",
+      "sensitive": false
+    }
+  }
+}

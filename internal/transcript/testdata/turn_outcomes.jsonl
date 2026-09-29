@@ -1,0 +1,11 @@
+{"type":"user","timestamp":"2026-01-01T00:00:05Z","toolDenialKind":"user-rejected","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_old","content":"pre-turn denial, must be excluded","is_error":true}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:11Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_ok","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"user","timestamp":"2026-01-01T00:00:11Z","message":{"role":"user","content":"[Request interrupted by user for tool use]"}}
+{"type":"user","timestamp":"2026-01-01T00:00:12Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_ok","content":"file1.txt","is_error":false}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:13Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_userdeny","name":"Edit","input":{"file":"a.go"}}]}}
+{"type":"user","timestamp":"2026-01-01T00:00:14Z","toolDenialKind":"user-rejected","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_userdeny","content":"The user doesn't want to proceed with this tool use.","is_error":true}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:15Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_ruledeny","name":"Bash","input":{"command":"rm -rf /"}}]}}
+{"type":"user","timestamp":"2026-01-01T00:00:16Z","toolDenialKind":"permission-rule","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_ruledeny","content":"The user doesn't want to proceed with this tool use.","is_error":true}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:17Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_abandon","name":"Write","input":{"file":"b.go"}}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:18Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_execerr","name":"Bash","input":{"command":"false"}}]}}
+{"type":"user","timestamp":"2026-01-01T00:00:19Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_execerr","content":"exit status 1","is_error":true}]}}

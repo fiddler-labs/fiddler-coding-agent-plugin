@@ -1,0 +1,26 @@
+# Build artifacts
+bin/
+dist/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local config (contains secrets — never commit)
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

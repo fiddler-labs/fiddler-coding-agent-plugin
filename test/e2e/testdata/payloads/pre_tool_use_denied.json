@@ -1,0 +1,9 @@
+{
+  "session_id": "e2e-perm",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "rm -rf /tmp/x" },
+  "tool_use_id": "toolu_B",
+  "permission_mode": "auto"
+}
