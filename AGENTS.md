@@ -79,6 +79,7 @@ claude --plugin-dir .
 ## PR and Commit Conventions
 
 - **Squash-merge.** The PR title becomes the commit subject on `main`.
+- **Fork PRs:** before approving a fork PR's workflow run, read the full diff including `.github/`. A fork PR can add or modify workflow files.
 - **Formatting:** `gofmt` is enforced by CI. Run it before pushing.
 - **Linting:** `golangci-lint` with `.golangci.yml` config (errcheck, govet, staticcheck, unused, misspell, ineffassign).
 - **Dependencies:** the only external Go dependency is `github.com/stretchr/testify` (test only). Keep it lean; do not add the OTel SDK (the plugin hand-builds OTLP/JSON because spans ship before parents exist).
