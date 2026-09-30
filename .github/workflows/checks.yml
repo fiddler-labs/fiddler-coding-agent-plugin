@@ -9,7 +9,7 @@ permissions:
 jobs:
   test:
     name: build & test
-    runs-on: fdl-small
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -23,7 +23,7 @@ jobs:
 
   lint:
     name: lint & format
-    runs-on: fdl-small
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

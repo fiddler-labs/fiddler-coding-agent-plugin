@@ -50,6 +50,9 @@ git push origin v0.4.0
 The tag **must** be `v<version>` where `<version>` matches the value you set in
 step 1. The version-guard rejects tags that are not valid `v<semver>`.
 
+After pushing the tag, check the Actions tab and confirm there is exactly one
+Release run for it.
+
 ### 4. CI publishes
 
 Pushing the tag triggers `.github/workflows/release.yml`:
