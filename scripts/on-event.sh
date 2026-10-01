@@ -3,9 +3,9 @@
 #
 # Binary source is controlled by FIDDLER_BINARY_SOURCE (default: release):
 #
-#   release  Download the released binary from GitHub Releases (authenticated
-#            via gh). Cached in $CLAUDE_PLUGIN_DATA/bin/ so it is downloaded
-#            only once per version.
+#   release  Download the released binary from the public GitHub Release over
+#            HTTPS (curl, or wget if curl is unavailable). Cached in
+#            $CLAUDE_PLUGIN_DATA/bin/ so it is downloaded only once per version.
 #
 #   local    Use only a locally built binary (make build / make build-platform).
 #            Set this in .env.local when developing the plugin.
@@ -26,6 +26,19 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 fi
+
+# download URL DEST: fetch URL over HTTPS into DEST. Prefers curl and falls
+# back to wget. Returns non-zero on any failure (HTTP error such as 404,
+# timeout, or neither tool installed), so callers can fail open.
+download() {
+  if command -v curl &>/dev/null; then
+    curl -fsSL --proto '=https' --connect-timeout 10 --max-time 45 -o "$2" "$1"
+  elif command -v wget &>/dev/null; then
+    wget -q --timeout=20 --tries=2 -O "$2" "$1"
+  else
+    return 1
+  fi
+}
 
 # Detect OS and architecture for the correct binary name.
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -70,10 +83,11 @@ case "$SOURCE" in
 
       if [ -x "$VERSIONED_BINARY" ]; then
         BINARY="$VERSIONED_BINARY"
-      elif command -v gh &>/dev/null; then
-        # Download from GitHub Releases (authenticated via gh auth).
+      elif command -v curl &>/dev/null || command -v wget &>/dev/null; then
+        # Download from the public GitHub Release.
         mkdir -p "$BIN_DIR"
         TAG="v${VERSION}"
+        BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
         # Download + verify in a private per-invocation temp dir, then move the
         # verified binary into its versioned path with a single atomic mv. This
@@ -84,24 +98,17 @@ case "$SOURCE" in
         STAGE_DIR=$(mktemp -d "${BIN_DIR}/.stage.XXXXXX")
         trap 'rm -rf "$STAGE_DIR"' EXIT
 
-        if gh release download "$TAG" \
-             --repo "$REPO" \
-             --pattern "$ASSET" \
-             --dir "$STAGE_DIR" \
-             --clobber 2>/dev/null; then
+        if download "${BASE_URL}/${ASSET}" "${STAGE_DIR}/${ASSET}"; then
 
           # Fail closed: install only if the checksum is present AND verified.
           # If checksums.txt can't be downloaded, has no entry for this asset,
           # or no sha256 tool is available, we do NOT install the binary —
           # integrity is the whole point of this step.
           CHECKSUM_OK=false
-          if gh release download "$TAG" \
-               --repo "$REPO" \
-               --pattern "checksums.txt" \
-               --dir "$STAGE_DIR" \
-               --clobber 2>/dev/null; then
+          if download "${BASE_URL}/checksums.txt" "${STAGE_DIR}/checksums.txt"; then
 
-            EXPECTED=$(grep "  ${ASSET}$" "${STAGE_DIR}/checksums.txt" | cut -d' ' -f1)
+            # `|| true`: a missing entry must not trip `set -e` (fail open).
+            EXPECTED=$(grep "  ${ASSET}$" "${STAGE_DIR}/checksums.txt" | cut -d' ' -f1 || true)
             ACTUAL=""
             if command -v sha256sum &>/dev/null; then
               ACTUAL=$(sha256sum "${STAGE_DIR}/${ASSET}" | cut -d' ' -f1)
@@ -143,7 +150,7 @@ case "$SOURCE" in
     fi
 
     if [ -z "$BINARY" ]; then
-      echo "on-event: no released binary available (is gh authenticated? does release v${VERSION:-?} exist?)" >&2
+      echo "on-event: no released binary available for v${VERSION:-?} (download failed or could not be verified; see any message above. Requires curl or wget and HTTPS access to github.com)" >&2
       exit 0
     fi
     ;;

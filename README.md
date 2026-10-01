@@ -5,7 +5,7 @@ A coding-agent plugin that captures per-turn OpenTelemetry traces and delivers t
 ## Requirements
 
 - Claude Code
-- `gh` CLI, authenticated (`gh auth login`)
+- `curl` or `wget` (preinstalled on macOS and most Linux distributions)
 
 ## Install
 
