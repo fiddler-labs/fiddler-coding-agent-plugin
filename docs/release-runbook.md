@@ -80,7 +80,8 @@ Confirm the release contains:
 - `checksums.txt`
 
 Optionally verify the shim download path end-to-end in a fresh Claude Code
-session (or manually with `gh release download v0.4.0 --pattern "on-event-darwin-arm64"`
+session (or manually with
+`curl -fsSLO https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases/download/v0.4.0/on-event-darwin-arm64`
 followed by a checksum comparison against `checksums.txt`).
 
 ## Integrity verification
@@ -99,14 +100,19 @@ SHA-256, and refuses to install the binary if:
 - the computed hash does not match.
 
 This means a corrupted or tampered download is never executed, but the
-integrity guarantee depends on the GitHub Release transport (HTTPS + `gh`
-auth), not on a cryptographic signature tied to a release key.
+integrity guarantee depends on the GitHub Release transport (HTTPS), not on a
+cryptographic signature tied to a release key.
 
 ## Binary download
 
-The shim (`scripts/on-event.sh`) downloads release assets via `gh release
-download`. Ensure `gh` is installed and authenticated (`gh auth login`) on any
-machine that runs the plugin before the first hook invocation.
+The shim (`scripts/on-event.sh`) downloads release assets over HTTPS from
+`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases/download/v<version>/`
+using `curl` (or `wget` if curl is missing). Machines running the plugin need
+outbound HTTPS access to github.com and the release-asset host it redirects to.
+
+Publish the release immediately after merging a version bump: until
+`v<version>` exists, updated installs cannot download a binary (the hook fails
+open and sends no telemetry).
 
 ## Fixing version drift
 
@@ -141,7 +147,7 @@ tag overwrites any partial release artifacts.
 | `::error::plugin.json version (X) does not match tag (Y)` | Forgot to bump `plugin.json` before tagging, or bumped to the wrong value. | Delete the tag, fix the version, re-tag (see above). |
 | `::error::marketplace.json version for '...' (X) does not match tag (Y)` | `marketplace.json` version is present but was not bumped. | Same fix — bump `marketplace.json` to match, re-tag. |
 | `::error::Tag 'vfoo' is not a valid v<semver> release tag` | Tag is not `v<semver>` (e.g. `vfoo`, `release-1`). | Delete the tag, create a proper `v<semver>` tag. |
-| Shim reports "no released binary available" | The release does not exist, or `gh` is not authenticated. | Verify the release exists (`gh release view`); run `gh auth login`. |
+| Shim reports "no released binary available" | The release does not exist, neither `curl` nor `wget` is installed, or github.com is unreachable (proxy/firewall). | Verify the release exists (`gh release view` or the Releases page); check `curl -I https://github.com`. |
 | Shim reports "checksum mismatch" | Corrupted download or stale `checksums.txt`. | Re-download; if persistent, re-publish the release. |
 
 ## Version-sync reference

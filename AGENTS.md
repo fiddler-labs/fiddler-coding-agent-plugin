@@ -52,7 +52,7 @@ Source: `internal/config/config.go`.
 - **No `jq` dependency.** Reads `plugin.json` with `grep`/`sed`. Do not add a `jq` requirement.
 - Checksum verification on binary download is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
 - Concurrent hook invocations (parallel tool calls) are handled via per-invocation staging directories and atomic `mv`. Do not introduce shared mutable state.
-- `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from GitHub Releases via `gh`; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
+- `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from the public GitHub Release; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
 
 ## Dev / Validate Loop
 
@@ -74,7 +74,7 @@ make build
 claude --plugin-dir .
 ```
 
-**Release-path testing:** remove `FIDDLER_BINARY_SOURCE` from `.env.local` (or set to `release`), ensure `gh auth login` is done, then `claude --plugin-dir .`.
+**Release-path testing:** remove `FIDDLER_BINARY_SOURCE` from `.env.local` (or set to `release`), then `claude --plugin-dir .`. The shim downloads the published release matching `plugin.json`'s version, so that release must exist.
 
 ## PR and Commit Conventions
 

@@ -1,6 +1,6 @@
 {
   "name": "fiddler-claude-code-plugin",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "OpenTelemetry observability for coding agent sessions. Captures enriched, correctly-nested per-turn traces with tool I/O, token usage, and developer identity, and delivers them to Fiddler.",
   "author": {
     "name": "Fiddler AI"
