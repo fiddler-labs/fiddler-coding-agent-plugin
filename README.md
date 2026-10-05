@@ -22,19 +22,72 @@ Restart Claude Code after installing.
 
 ### Claude Code
 
-Add the following to your `settings.json` or `settings.local.json` under `"env"`:
+The plugin needs three options, declared as `userConfig` in `.claude-plugin/plugin.json`:
+
+| Option | Value |
+|---|---|
+| `OTLP_URL` | Fiddler OTLP/HTTP endpoint URL |
+| `APP_ID` | Fiddler application ID |
+| `AUTH_TOKEN` | Fiddler ingest-only token: the bare value, **no** `Bearer` prefix |
+
+Claude Code opens a configuration dialog for any option that isn't set when the plugin is installed or enabled from `/plugin`. Provide the values in one of the following ways.
+
+#### Organization rollout (managed settings)
+
+Administrators can pre-supply every option in Claude Code [managed settings](https://code.claude.com/docs/en/managed-settings). Users are then not prompted, and the plugin is installed and enabled automatically:
 
 ```json
 {
-  "env": {
-    "CLAUDE_PLUGIN_OPTION_OTLP_URL": "https://<your-fiddler-endpoint>/",
-    "CLAUDE_PLUGIN_OPTION_APP_ID": "<your application id>",
-    "CLAUDE_PLUGIN_OPTION_AUTH_TOKEN": "<your API key>"
+  "extraKnownMarketplaces": {
+    "fiddler-plugins": {
+      "source": { "source": "github", "repo": "fiddler-labs/fiddler-coding-agent-plugin" }
+    }
+  },
+  "enabledPlugins": {
+    "fiddler-claude-code-plugin@fiddler-plugins": true
+  },
+  "pluginConfigs": {
+    "fiddler-claude-code-plugin@fiddler-plugins": {
+      "options": {
+        "OTLP_URL": "https://<your-fiddler-endpoint>",
+        "APP_ID": "<your application id>",
+        "AUTH_TOKEN": "<your ingest-only token>"
+      }
+    }
   }
 }
 ```
 
-`AUTH_TOKEN` is the bare token value — do **not** add a `Bearer` prefix.
+Default file locations:
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-settings.json`
+- Linux/WSL: `/etc/claude-code/managed-settings.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-settings.json`
+
+Managed values take precedence over user settings. One exception: a token that a user previously entered in the dialog is kept in the OS keychain (or `~/.claude/.credentials.json`), and that stored value overrides the managed one. Have that user uninstall and reinstall the plugin to clear it.
+
+To check the result on a machine, run:
+
+```bash
+claude plugin configure fiddler-claude-code-plugin@fiddler-plugins --json
+```
+
+The `unconfigured` list should be empty.
+
+#### Individual users
+
+Either fill in the dialog shown by `/plugin install`, or install from your shell with the values supplied up front. `claude plugin install` never prompts:
+
+```bash
+claude plugin install fiddler-claude-code-plugin@fiddler-plugins \
+  --config OTLP_URL=https://<your-fiddler-endpoint> \
+  --config APP_ID=<your application id> \
+  --config AUTH_TOKEN=<your ingest-only token>
+```
+
+To change values later, run `/plugin configure fiddler-claude-code-plugin@fiddler-plugins` in Claude Code.
+
+> Setting `CLAUDE_PLUGIN_OPTION_*` variables under `"env"` in `settings.json` does not satisfy the configuration dialog, and `OTEL_EXPORTER_OTLP_*` variables are stripped from hook processes by Claude Code. Use `pluginConfigs` or the dialog instead.
 
 Restart Claude Code after changing configuration values.
 

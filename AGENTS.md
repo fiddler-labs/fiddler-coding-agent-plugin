@@ -7,7 +7,7 @@ The code is the authoritative source of truth for architecture and behavior. Rea
 ## Security
 
 - **Never commit secrets or tokens.** `.env.local` is gitignored and must stay that way.
-- The ingestion token (`AUTH_TOKEN` / `CLAUDE_PLUGIN_OPTION_AUTH_TOKEN`) is sensitive. Treat it like a password. It is stored in the OS keychain or `~/.claude/.credentials.json`.
+- The ingestion token (`AUTH_TOKEN` / `CLAUDE_PLUGIN_OPTION_AUTH_TOKEN`) is a scoped, ingest-only token, declared `"sensitive": true` in `plugin.json`. Treat it like a password: never commit it, never log it. When entered through the Claude Code dialog it is stored in the OS keychain or `~/.claude/.credentials.json`. Organizations may instead supply it in plain text via managed-settings `pluginConfigs` (see README). A keychain value overrides the managed one.
 - `internal/filelog` must **never** log content, secrets, or PII. Only IDs and counts are permitted. Grep for `filelog.` calls before adding new log statements.
 
 ## Fail-Open Invariant
@@ -43,7 +43,8 @@ Resolution order (first non-empty wins):
 Key traps:
 
 - **Bare token:** `AUTH_TOKEN` must be the bare token value with **no `Bearer ` prefix**. The plugin prepends `Bearer ` itself (`internal/otlp/export.go`). A leading `Bearer ` produces `Authorization: Bearer Bearer ...`.
-- **OTel stripping:** `OTEL_*` variables set in Claude Code's `settings.json` / `settings.local.json` under `env` are **stripped** from hook subprocess environments (Claude Code consumes them for its own telemetry). The OTel fallback only works from the real process environment (`export` in shell, or injected by organization-managed device configuration). For installed plugins, use `userConfig`.
+- **OTel stripping:** Claude Code strips **all** `OTEL_*` variables from every hook subprocess, whether they come from settings `env` or from a shell `export`, because it uses them for its own telemetry. The OTel fallback therefore only works when the variables are set *inside* the hook process: `.env.local` sourced by `scripts/on-event.sh` (`--plugin-dir` development), or running the binary directly. For installed plugins, use `userConfig`.
+- **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-claude-code-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` (user and `--settings` sources); not documented by Anthropic and may change.
 
 Source: `internal/config/config.go`.
 
