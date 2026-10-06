@@ -4,6 +4,7 @@ A coding-agent plugin that captures per-turn OpenTelemetry traces and delivers t
 
 ## Requirements
 
+- macOS or Linux (including WSL). Native Windows is not supported.
 - Claude Code
 - `curl` or `wget` (preinstalled on macOS and most Linux distributions)
 
@@ -62,7 +63,8 @@ Default file locations:
 
 - macOS: `/Library/Application Support/ClaudeCode/managed-settings.json`
 - Linux/WSL: `/etc/claude-code/managed-settings.json`
-- Windows: `C:\Program Files\ClaudeCode\managed-settings.json`
+
+If your organization already delivers managed settings from the claude.ai admin console or through MDM, add these keys there instead. By default Claude Code uses only the highest-ranked managed source and ignores `managed-settings.json` when another source is present. To check, run `/status`: the `Setting sources` line names the source in use, and `Skipped sources` lists any it ignored.
 
 Managed values take precedence over user settings. One exception: a token that a user previously entered in the dialog is kept in the OS keychain (or `~/.claude/.credentials.json`), and that stored value overrides the managed one. Have that user uninstall and reinstall the plugin to clear it.
 
