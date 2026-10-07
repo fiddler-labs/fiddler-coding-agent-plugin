@@ -54,10 +54,20 @@ type Context struct {
 	Cwd        string `json:"cwd"`
 }
 
+// pathSegmentReplacer maps characters that are path separators or otherwise
+// invalid in a file name on some OS to "_". "/" separates paths everywhere;
+// "\\" is also a separator on Windows, and ":" is invalid in Windows file names
+// (it would name an alternate data stream or a drive).
+var pathSegmentReplacer = strings.NewReplacer("/", "_", "\\", "_", ":", "_")
+
+// safe makes an id usable as a path segment on every OS.
+func safe(id string) string {
+	return pathSegmentReplacer.Replace(id)
+}
+
 // ctxPath returns the file path for a session's context file.
 func ctxPath(sessionID string) string {
-	safe := strings.ReplaceAll(sessionID, "/", "_")
-	return filepath.Join(getCtxDir(), safe+".json")
+	return filepath.Join(getCtxDir(), safe(sessionID)+".json")
 }
 
 // New allocates a fresh trace context for a new turn and writes it to

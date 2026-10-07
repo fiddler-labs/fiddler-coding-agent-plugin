@@ -62,8 +62,17 @@ Pushing the tag triggers `.github/workflows/release.yml`:
    `marketplace.json`, and fails with an `::error` annotation if any version
    does not match. If this fails, see [Fixing version drift](#fixing-version-drift).
 3. **GoReleaser** — builds `on-event-<os>-<arch>` binaries for
-   `linux/darwin × amd64/arm64`, generates `checksums.txt` (SHA-256), and
-   creates a GitHub Release at the pushed tag.
+   `linux/darwin/windows × amd64/arm64` (Windows assets end in `.exe`),
+   generates `checksums.txt` (SHA-256), and creates a GitHub Release at the
+   pushed tag. A tag with a pre-release suffix (`v0.8.0-rc.1`) is published as
+   a GitHub pre-release.
+4. **Release smoke** — after GoReleaser publishes, `release-smoke.yml` runs on
+   Linux, macOS, Windows x64 and Windows ARM64. It runs the real hook shim in
+   release mode (through Git Bash on Windows): it downloads this release's
+   asset, verifies the checksum, caches and runs the binary, and checks that a
+   trace reaches a local fake endpoint. It doesn't start Claude Code itself.
+   The release is already public when this runs; if it fails, don't announce
+   the release, fix the problem, and cut the next version.
 
 ### 5. Verify the release
 
@@ -77,7 +86,17 @@ Confirm the release contains:
 - `on-event-linux-arm64`
 - `on-event-darwin-amd64`
 - `on-event-darwin-arm64`
+- `on-event-windows-amd64.exe`
+- `on-event-windows-arm64.exe`
 - `checksums.txt`
+
+Confirm the **release smoke** job in the Release run passed on all four
+platforms. To re-run it later against any published tag (the workflow file
+must be on `main` for manual runs):
+
+```bash
+gh workflow run release-smoke.yml --repo fiddler-labs/fiddler-coding-agent-plugin -f tag=v0.4.0
+```
 
 Optionally verify the shim download path end-to-end in a fresh Claude Code
 session, or check one asset's checksum manually:
@@ -88,11 +107,39 @@ gh release download v0.4.0 --repo fiddler-labs/fiddler-coding-agent-plugin \
 grep ' on-event-darwin-arm64$' checksums.txt | shasum -a 256 -c
 ```
 
+## Release candidates
+
+Use a release candidate to test a release, for example a platform change, on
+real GitHub release assets before users get it:
+
+1. On the feature branch (not `main`), set `plugin.json` and
+   `marketplace.json` to `0.8.0-rc.1`, commit, and push the branch.
+2. Tag that commit and push the tag:
+
+   ```bash
+   git tag v0.8.0-rc.1
+   git push origin v0.8.0-rc.1
+   ```
+
+   The version guard accepts the pre-release suffix, and GoReleaser publishes
+   a GitHub pre-release. Installed plugins are unaffected: they follow the
+   version in `plugin.json` on `main`.
+3. Check the release smoke job in that Release run. To try the release in
+   Claude Code, check out the branch and run `make dev` (release mode).
+4. When it passes, set both manifests to `0.8.0`, merge, and follow the normal
+   release steps above.
+
+Tags in this repository can't be moved or deleted without bypassing the
+"Restrict tags" ruleset, so treat a pushed tag as final: if `v0.8.0-rc.1` turns
+out broken, fix it on the branch and cut `v0.8.0-rc.2`.
+
 ## Integrity verification
 
 GoReleaser produces a `checksums.txt` file containing SHA-256 hashes of every
 release asset. **No code signing or notarization is configured** — integrity
-relies on checksums only.
+relies on checksums only. That includes Windows: the `.exe` assets carry no
+Authenticode signature, which strict Windows application-control policies may
+block (the README describes this for users).
 
 The shim (`scripts/on-event.sh`) enforces this **fail-closed**: it downloads
 both the binary and `checksums.txt` from the release, computes the local
@@ -121,7 +168,11 @@ open and sends no telemetry).
 ## Fixing version drift
 
 If the version-guard step fails, the release was **not published**. Fix the
-drift and re-release:
+drift and re-release.
+
+Deleting and re-pushing a tag (steps 1 and 4) requires bypassing the "Restrict
+tags" ruleset. If you can't bypass it, leave the tag in place and release the
+next patch version instead.
 
 ```bash
 # 1. Delete the tag (locally and remotely)

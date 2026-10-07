@@ -10,21 +10,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeClaudeConfig points HOME at a temp dir and writes ~/.claude.json there.
+// setHome points the home directory at dir on every OS: os.UserHomeDir reads
+// HOME on Unix but USERPROFILE on Windows.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
+// writeClaudeConfig points the home directory at a temp dir and writes
+// ~/.claude.json there.
 func writeClaudeConfig(t *testing.T, contents string) {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	require.NoError(t, os.WriteFile(filepath.Join(home, ".claude.json"), []byte(contents), 0o600))
 }
 
 // suppressGitConfig points git at empty config files so no host git identity
 // leaks into a test. Combined with this repo carrying no local user.* config,
 // gitConfig() then resolves to "".
+//
+// An empty temp file rather than os.DevNull: os.DevNull is "NUL" on Windows,
+// which is not a dependable config path for Git for Windows.
 func suppressGitConfig(t *testing.T) {
 	t.Helper()
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
+	empty := emptyGitConfig(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", empty)
+	t.Setenv("GIT_CONFIG_SYSTEM", empty)
+}
+
+// emptyGitConfig creates an empty git config file and returns its path.
+func emptyGitConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "empty-gitconfig")
+	require.NoError(t, os.WriteFile(path, nil, 0o600))
+	return path
 }
 
 // setGitConfig writes a temp global git config carrying the given user identity
@@ -42,7 +63,7 @@ func setGitConfig(t *testing.T, name, email string) {
 	}
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 	t.Setenv("GIT_CONFIG_GLOBAL", path)
-	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
+	t.Setenv("GIT_CONFIG_SYSTEM", emptyGitConfig(t))
 }
 
 // Given a well-formed ~/.claude.json and no git identity, when identity is
@@ -75,7 +96,7 @@ func TestResolve_ReadsAccountIdentity(t *testing.T) {
 // erroring.
 func TestResolve_MissingFileFailsOpen(t *testing.T) {
 	suppressGitConfig(t)
-	t.Setenv("HOME", t.TempDir()) // no .claude.json written
+	setHome(t, t.TempDir()) // no .claude.json written
 	id := Resolve()
 	assert.Empty(t, id.UserID)
 	assert.Empty(t, id.AccountUUID)
@@ -151,7 +172,7 @@ func TestResolveUser(t *testing.T) {
 // identity is resolved, entrypoint and terminal type are populated from them and
 // cwd is the process working directory.
 func TestResolve_EnvironmentAttributes(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
 	t.Setenv("TERM_PROGRAM", "kitty")
 
@@ -167,7 +188,7 @@ func TestResolve_EnvironmentAttributes(t *testing.T) {
 // Given TERM_PROGRAM is unset but TERM is set, when identity is resolved, the
 // terminal type falls back to TERM.
 func TestResolve_TerminalFallsBackToTERM(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("TERM", "xterm-256color")
 

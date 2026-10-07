@@ -11,9 +11,12 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
+    # Windows builds get GoReleaser's automatic ".exe" suffix, so the assets are
+    # on-event-windows-<arch>.exe. scripts/on-event.sh derives the same name.
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64

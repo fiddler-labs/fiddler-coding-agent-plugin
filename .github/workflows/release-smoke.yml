@@ -1,0 +1,47 @@
+name: release smoke
+
+# Tests a published release on every platform: runs the real hook shim in
+# release mode, which downloads the release asset from GitHub, verifies it
+# against checksums.txt, caches and runs it, and checks that a trace reaches a
+# local fake endpoint. release.yml calls this after GoReleaser publishes, for
+# every tag including release candidates. It can also be run by hand (Actions
+# tab or `gh workflow run`) once this file is on the default branch.
+# See docs/release-runbook.md.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to test, e.g. v0.8.0-rc.1"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to test, e.g. v0.8.0-rc.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: release smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, windows-11-arm]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Download, verify and run the release binary through the shim
+        env:
+          FIDDLER_SHIM_RELEASE_TAG: ${{ inputs.tag }}
+        run: go test -count=1 -v -run 'TestShim_ReleaseDownload' ./test/shim/

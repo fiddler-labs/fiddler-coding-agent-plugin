@@ -69,3 +69,16 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Download, verify and run the just-published binaries through the real hook
+  # shim on Linux, macOS, Windows x64 and Windows ARM64. Runs on every tag,
+  # including release candidates. The release is already public at this point;
+  # a failure here means: don't announce it, fix, and cut the next version.
+  smoke:
+    name: release smoke
+    needs: [release]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release-smoke.yml
+    with:
+      tag: ${{ github.ref_name }}
