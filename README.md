@@ -4,9 +4,18 @@ A coding-agent plugin that captures per-turn OpenTelemetry traces and delivers t
 
 ## Requirements
 
-- macOS or Linux (including WSL). Native Windows is not supported.
-- Claude Code
-- `curl` or `wget` (preinstalled on macOS and most Linux distributions)
+- Claude Code on one of:
+  - macOS or Linux (including WSL), on x64 or ARM64
+  - Windows 10/11 on x64 or ARM64, with [Git for Windows](https://gitforwindows.org/) installed (**preview**; see [Windows](#windows-preview))
+- `curl` or `wget` (preinstalled on macOS and most Linux distributions, and included with Git for Windows)
+
+### Windows (preview)
+
+Claude Code runs plugin hooks through Git Bash when Git for Windows is installed. This plugin's hook is a bash script, so Git for Windows is required. Without it, Claude Code runs hooks through PowerShell instead, the plugin's hooks fail to start, and no telemetry is sent.
+
+The Windows binary is **not yet code-signed**. Like every release binary, it is downloaded from this repository's GitHub Releases and checked against the release's SHA-256 checksums before it runs. Machines with strict application-control policies (AppLocker, App Control for Business, Smart App Control) or endpoint security tools may block an unsigned program in the user's profile directory. If that happens, the plugin sends no telemetry, but Claude Code keeps working normally: the hooks never block a session. Signed Windows binaries are planned for a later release.
+
+The binary is cached at `%USERPROFILE%\.claude\plugins\data\<plugin-id>\bin\on-event-windows-<arch>-<version>.exe`.
 
 ## Install
 
@@ -63,6 +72,7 @@ Default file locations:
 
 - macOS: `/Library/Application Support/ClaudeCode/managed-settings.json`
 - Linux/WSL: `/etc/claude-code/managed-settings.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-settings.json`
 
 If your organization already delivers managed settings from the claude.ai admin console or through MDM, add these keys there instead. By default Claude Code uses only the highest-ranked managed source and ignores `managed-settings.json` when another source is present. To check, run `/status`: the `Setting sources` line names the source in use, and `Skipped sources` lists any it ignored.
 
@@ -108,7 +118,7 @@ The plugin registers hooks for Claude Code session, prompt, tool, permission, su
 
 ### Downloads
 
-On first use of each plugin version, the script downloads the plugin's prebuilt binary for your OS and CPU from this repository's GitHub Releases (`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases`) over HTTPS. It verifies the binary's SHA-256 checksum against the release's `checksums.txt` and refuses to run a binary that doesn't match. The verified binary is cached in the plugin's data directory, so it is downloaded once per version. The binary is built from the Go source in this repository.
+On first use of each plugin version, the script downloads the plugin's prebuilt binary for your OS and CPU (macOS, Linux, or Windows; x64 or ARM64) from this repository's GitHub Releases (`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases`) over HTTPS. It verifies the binary's SHA-256 checksum against the release's `checksums.txt` and refuses to run a binary that doesn't match. The verified binary is cached in the plugin's data directory, so it is downloaded once per version. The binary is built from the Go source in this repository.
 
 ### Data sent to Fiddler
 
@@ -148,6 +158,8 @@ make dev                           # starts Claude Code with the plugin loaded f
 By default the shim downloads the released binary from GitHub Releases, so no build step is required.
 
 To build from source, uncomment `FIDDLER_BINARY_SOURCE=local` in `.env.local`. `make dev` then runs `make build` before starting Claude Code. Exit and run `make dev` again to pick up changes.
+
+On Windows, run these commands from Git Bash. Git for Windows doesn't include `make`; install it separately, or run the equivalent by hand: `go build -o bin/on-event.exe ./cmd/on-event`, then `set -a; . ./.env.local; set +a; claude --plugin-dir .`.
 
 ## Releasing
 

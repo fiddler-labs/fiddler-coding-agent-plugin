@@ -60,6 +60,11 @@ Source: `internal/config/config.go`.
 - Checksum verification on binary download is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
 - Concurrent hook invocations (parallel tool calls) are handled via per-invocation staging directories and atomic `mv`. Do not introduce shared mutable state.
 - `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from the public GitHub Release; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
+- **`exec` must not break fail-open.** The shim sets `shopt -s execfail` and `set +e` right before `exec`, so a binary that can't start (wrong architecture, blocked by policy) falls through to `exit 0` instead of bash's 126. `test/shim` covers this.
+- **Windows (Git Bash).** `uname -s` reports `MINGW64_NT-…`/`MSYS_NT-…`/`CYGWIN_NT-…`, mapped to `windows` with `EXE=.exe`. Asset: `on-event-windows-<arch>.exe`; cache: `on-event-windows-<arch>-<version>.exe` (version before the extension). macOS/Linux names have no suffix and must stay unchanged so existing caches stay valid. Windows can't replace or delete a running `.exe`: if the install `mv` fails but the versioned binary already exists (a parallel hook won), use it; pruning old versions is best-effort. Skip `chmod` on Windows.
+- **LF only.** `.gitattributes` forces LF; a CRLF shim fails in Git Bash. Don't remove it. CI checks the checked-out shim on Windows.
+- **Quote the plugin root** in `hooks/hooks.json` (`"${CLAUDE_PLUGIN_ROOT}"/scripts/on-event.sh`): Windows profile paths often contain spaces.
+- Without Git Bash, Claude Code runs hooks through PowerShell, which can't run the shim. That setup is unsupported (documented in the README).
 
 ## Dev / Validate Loop
 
@@ -71,7 +76,11 @@ make lint              # golangci-lint run ./...
 make dev               # export .env.local, then claude --plugin-dir . (builds first if FIDDLER_BINARY_SOURCE=local)
 ```
 
-CI (`.github/workflows/checks.yml`) runs: `go mod verify`, `go build`, `go vet`, `go test -race`, `gofmt` check, `golangci-lint v2`.
+CI (`.github/workflows/checks.yml`) runs `go mod verify`, `go build`, `go vet` and `go test` on `ubuntu-latest` and `macos-latest` (with `-race`) and on `windows-latest` (x64) and `windows-11-arm` (ARM64), plus `gofmt`, `bash -n` on the shim, and `golangci-lint v2` for both the host and `GOOS=windows`.
+
+`test/shim` runs the real `scripts/on-event.sh` through bash (Git Bash on Windows; never WSL's `bash.exe`) with a local build and a fake OTLP endpoint. It covers trace export, fail-open exits, an unstartable binary, and (on macOS/Linux, with a fake `uname`) the Windows binary names. `FIDDLER_SHIM_RELEASE_TAG=vX.Y.Z go test ./test/shim/` also tests downloading a published release; `.github/workflows/release-smoke.yml` runs that on all four platforms.
+
+Windows test pitfalls: `os.UserHomeDir` reads `USERPROFILE`, not `HOME` (set both); Windows can't delete a file that is still open, so don't keep files open past a test (`internal/filelog` opens and closes `plugin.log` per write for this reason); `go build -o` doesn't add `.exe`.
 
 **Local testing:**
 
@@ -98,7 +107,7 @@ make dev
 ```
 hooks/hooks.json          10 hooks registered (SessionStart .. SessionEnd)
        |
-scripts/on-event.sh       shim: locates/downloads binary, forwards stdin
+scripts/on-event.sh       shim: locates/downloads binary (.exe on Windows), forwards stdin
        |
 cmd/on-event/main.go      entrypoint: config -> adapt -> pipeline (always exit 0)
        |

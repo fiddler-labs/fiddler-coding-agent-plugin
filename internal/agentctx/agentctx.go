@@ -74,9 +74,15 @@ func getDir(sessionID string) string {
 	return dir
 }
 
-// safe makes an id usable as a path segment.
+// pathSegmentReplacer maps characters that are path separators or otherwise
+// invalid in a file name on some OS to "_". "/" separates paths everywhere;
+// "\\" is also a separator on Windows, and ":" is invalid in Windows file names
+// (it would name an alternate data stream or a drive).
+var pathSegmentReplacer = strings.NewReplacer("/", "_", "\\", "_", ":", "_")
+
+// safe makes an id usable as a path segment on every OS.
 func safe(id string) string {
-	return strings.ReplaceAll(id, "/", "_")
+	return pathSegmentReplacer.Replace(id)
 }
 
 // recPath returns the file path for one sub-agent's record.

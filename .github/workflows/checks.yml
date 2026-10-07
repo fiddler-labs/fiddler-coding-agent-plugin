@@ -8,18 +8,50 @@ permissions:
 
 jobs:
   test:
-    name: build & test
-    runs-on: ubuntu-latest
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Report every platform on a failure rather than cancelling the others:
+      # a Windows-only break should not hide the Linux result, or vice versa.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            race: "-race"
+          - os: macos-latest
+            race: "-race"
+          # No -race on Windows: it needs cgo and a C toolchain the images
+          # don't promise. windows-latest is x64 (Windows Server); windows-11-arm
+          # is ARM64 (Windows 11). Both ship Git for Windows, so test/shim runs
+          # the hook shim through Git Bash as Claude Code does.
+          - os: windows-latest
+            race: ""
+          - os: windows-11-arm
+            race: ""
+    # bash on every OS (Git Bash on Windows) so the steps below are identical.
+    defaults:
+      run:
+        shell: bash
     steps:
+      # Show the line-ending setting the checkout below runs under. On Windows
+      # images Git for Windows defaults to core.autocrlf=true; .gitattributes
+      # must still give LF scripts, which test/shim then exercises.
+      - name: Git line-ending config
+        run: git config --show-origin --get core.autocrlf || echo "core.autocrlf unset"
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+      - name: scripts/on-event.sh is LF
+        run: |
+          if grep -q $'\r' scripts/on-event.sh; then
+            echo "::error::scripts/on-event.sh was checked out with CRLF line endings"; exit 1
+          fi
       - run: go mod verify
       - run: go build ./...
       - run: go vet ./...
-      - run: go test -race ./...
+      - run: go test ${{ matrix.race }} ./...
 
   lint:
     name: lint & format
@@ -36,6 +68,16 @@ jobs:
           if [ -n "$out" ]; then
             echo "Not gofmt-clean:"; echo "$out"; exit 1
           fi
+      - name: bash -n scripts/on-event.sh
+        run: bash -n scripts/on-event.sh
       - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+      # Same linters with Windows build constraints, so Windows-only code paths
+      # and Windows-specific API misuse are checked too.
+      - name: golangci-lint (GOOS=windows)
+        uses: golangci/golangci-lint-action@v9
+        env:
+          GOOS: windows
         with:
           version: v2.12.2

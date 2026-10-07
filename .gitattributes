@@ -1,0 +1,9 @@
+# Every text file is LF in the working tree, on every platform. Git for Windows
+# checks out CRLF by default (core.autocrlf=true), and a marketplace install
+# clones this repo, so without this a Windows user's scripts/on-event.sh would
+# have CRLF endings and fail in Git Bash ("bad interpreter: /usr/bin/env bash^M"
+# or "$'\r': command not found"). It also keeps Go test fixtures byte-identical.
+* text=auto eol=lf
+
+# The hook shim is executed by bash: always LF.
+*.sh text eol=lf

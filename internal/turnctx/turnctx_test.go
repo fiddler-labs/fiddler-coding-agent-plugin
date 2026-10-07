@@ -102,3 +102,18 @@ func TestPeek_CorruptFile(t *testing.T) {
 	assert.False(t, ok, "corrupt file reports absence")
 	assert.Nil(t, ctx)
 }
+
+// Given session ids containing characters that are path separators or invalid
+// in Windows file names, when they are turned into a path segment, then each
+// becomes "_" and the context file stays directly inside the context dir.
+func TestSafe_ReplacesPathCharacters(t *testing.T) {
+	assert.Equal(t, "a_b_c_d", safe(`a/b\c:d`))
+	assert.Equal(t, "plain-id", safe("plain-id"))
+
+	t.Setenv("CLAUDE_PLUGIN_DATA", t.TempDir())
+	_, err := New(`x/y\z:w`, "p", "/repo")
+	require.NoError(t, err)
+	loaded, ok := Peek(`x/y\z:w`)
+	require.True(t, ok, "context written and read back under the sanitized name")
+	assert.Equal(t, "p", loaded.UserPrompt)
+}

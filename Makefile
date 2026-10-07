@@ -10,18 +10,26 @@ endif
 ifeq ($(ARCH),aarch64)
   ARCH := arm64
 endif
+# Git Bash / MSYS2 / Cygwin on Windows. `go build -o` does not add ".exe" by
+# itself, and Windows only runs the binary with the suffix, which is also the
+# name scripts/on-event.sh looks for in local mode.
+EXE :=
+ifneq ($(filter mingw% msys% cygwin%,$(OS)),)
+  OS := windows
+  EXE := .exe
+endif
 
 .PHONY: build build-platform clean test lint dev
 
 build:
 	@mkdir -p $(BIN_DIR)
-	go build -o $(BIN_DIR)/$(BINARY) ./cmd/on-event
-	@echo "Built $(BIN_DIR)/$(BINARY)"
+	go build -o $(BIN_DIR)/$(BINARY)$(EXE) ./cmd/on-event
+	@echo "Built $(BIN_DIR)/$(BINARY)$(EXE)"
 
 build-platform:
 	@mkdir -p $(BIN_DIR)
-	go build -o $(BIN_DIR)/$(BINARY)-$(OS)-$(ARCH) ./cmd/on-event
-	@echo "Built $(BIN_DIR)/$(BINARY)-$(OS)-$(ARCH)"
+	go build -o $(BIN_DIR)/$(BINARY)-$(OS)-$(ARCH)$(EXE) ./cmd/on-event
+	@echo "Built $(BIN_DIR)/$(BINARY)-$(OS)-$(ARCH)$(EXE)"
 
 test:
 	go test ./...

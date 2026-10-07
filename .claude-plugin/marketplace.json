@@ -10,7 +10,7 @@
       "name": "fiddler-coding-agent-plugin",
       "source": "./",
       "description": "OpenTelemetry observability for coding agent sessions.",
-      "version": "0.7.0"
+      "version": "0.8.0-rc.1"
     }
   ],
   "renames": {

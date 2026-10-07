@@ -1,0 +1,39 @@
+name: release smoke
+
+# Manually run against a published release (normally a release candidate such
+# as v0.8.0-rc.1) before announcing it. On each platform it runs the real hook
+# shim in release mode: download the release asset from GitHub, verify it
+# against checksums.txt, cache it, run it, and check that a trace reaches a
+# local fake endpoint. See docs/release-runbook.md.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to test, e.g. v0.8.0-rc.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: release smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, windows-11-arm]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Download, verify and run the release binary through the shim
+        env:
+          FIDDLER_SHIM_RELEASE_TAG: ${{ inputs.tag }}
+        run: go test -count=1 -v -run 'TestShim_ReleaseDownload' ./test/shim/
