@@ -14,7 +14,7 @@ A coding-agent plugin that captures per-turn OpenTelemetry traces and delivers t
 
 ```
 /plugin marketplace add fiddler-labs/fiddler-coding-agent-plugin
-/plugin install fiddler-claude-code-plugin@fiddler-plugins
+/plugin install fiddler-coding-agent-plugin@fiddler-plugins
 ```
 
 Restart Claude Code after installing.
@@ -45,10 +45,10 @@ Administrators can pre-supply every option in Claude Code [managed settings](htt
     }
   },
   "enabledPlugins": {
-    "fiddler-claude-code-plugin@fiddler-plugins": true
+    "fiddler-coding-agent-plugin@fiddler-plugins": true
   },
   "pluginConfigs": {
-    "fiddler-claude-code-plugin@fiddler-plugins": {
+    "fiddler-coding-agent-plugin@fiddler-plugins": {
       "options": {
         "OTLP_URL": "https://<your-fiddler-endpoint>",
         "APP_ID": "<your application id>",
@@ -71,7 +71,7 @@ Managed values take precedence over user settings. One exception: a token that a
 To check the result on a machine, run:
 
 ```bash
-claude plugin configure fiddler-claude-code-plugin@fiddler-plugins --json
+claude plugin configure fiddler-coding-agent-plugin@fiddler-plugins --json
 ```
 
 The `unconfigured` list should be empty.
@@ -81,17 +81,26 @@ The `unconfigured` list should be empty.
 Either fill in the dialog shown by `/plugin install`, or install from your shell with the values supplied up front. `claude plugin install` never prompts:
 
 ```bash
-claude plugin install fiddler-claude-code-plugin@fiddler-plugins \
+claude plugin install fiddler-coding-agent-plugin@fiddler-plugins \
   --config OTLP_URL=https://<your-fiddler-endpoint> \
   --config APP_ID=<your application id> \
   --config AUTH_TOKEN=<your ingest-only token>
 ```
 
-To change values later, run `/plugin configure fiddler-claude-code-plugin@fiddler-plugins` in Claude Code.
+To change values later, run `/plugin configure fiddler-coding-agent-plugin@fiddler-plugins` in Claude Code.
 
 > `CLAUDE_PLUGIN_OPTION_*` variables set under `"env"` in `settings.json` still reach the plugin at runtime, but they don't stop the configuration dialog, and any value stored through the dialog or `pluginConfigs` takes precedence over them. The plugin doesn't read `OTEL_EXPORTER_OTLP_*` variables (Claude Code also strips them from hook processes). Prefer `pluginConfigs`.
 
 Restart Claude Code after changing configuration values. Until all three options are set, the plugin does nothing.
+
+### Upgrading from 0.6.x
+
+In 0.7.0 the plugin was renamed from `fiddler-claude-code-plugin` to `fiddler-coding-agent-plugin`. Claude Code moves your `enabledPlugins` and `pluginConfigs` entries (the endpoint and application ID) to the new name automatically. Your saved ingestion token is not moved, so after updating:
+
+1. If Claude Code reports that the plugin is not cached, run `/plugin install fiddler-coding-agent-plugin@fiddler-plugins` once.
+2. Re-enter the ingestion token with `/plugin configure fiddler-coding-agent-plugin@fiddler-plugins`.
+
+If your organization supplies the options through managed settings, update the plugin ID in `enabledPlugins` and `pluginConfigs` there. Claude Code doesn't rewrite managed settings.
 
 ## What the plugin does
 

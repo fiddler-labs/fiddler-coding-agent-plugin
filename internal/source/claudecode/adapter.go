@@ -40,7 +40,7 @@ const (
 // *produces* the telemetry — that is the plugin itself, not the observed
 // agent runtime (which is carried by gen_ai.agent.name). Naming it per
 // runtime lets each adapter declare a distinct producer identity.
-const ServiceName = "fiddler-claude-code-plugin"
+const ServiceName = "fiddler-coding-agent-plugin"
 
 // Adapt converts a Claude Code hook event name and payload into a neutral
 // event.Event. The second return value is false when the event is not one

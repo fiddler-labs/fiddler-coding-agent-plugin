@@ -7,10 +7,13 @@
   "description": "Fiddler AI plugins for coding agents — OpenTelemetry observability that delivers enriched, correctly-nested session traces to the Fiddler platform.",
   "plugins": [
     {
-      "name": "fiddler-claude-code-plugin",
+      "name": "fiddler-coding-agent-plugin",
       "source": "./",
       "description": "OpenTelemetry observability for coding agent sessions.",
       "version": "0.7.0"
     }
-  ]
+  ],
+  "renames": {
+    "fiddler-claude-code-plugin": "fiddler-coding-agent-plugin"
+  }
 }

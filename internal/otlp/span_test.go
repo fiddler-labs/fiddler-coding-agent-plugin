@@ -57,7 +57,7 @@ func resAttrLookup(t *testing.T, p ExportPayload) func(string) (string, bool) {
 // scope, and the spans are all present.
 func TestBuildPayload(t *testing.T) {
 	span := NewSpan("n", "trace1", "span1", "", "1", "2", nil)
-	cfg := &config.Config{AppID: "app-123", ServiceName: "fiddler-claude-code-plugin"}
+	cfg := &config.Config{AppID: "app-123", ServiceName: "fiddler-coding-agent-plugin"}
 	p := BuildPayload(cfg, []Span{span})
 
 	require.Len(t, p.ResourceSpans, 1)
@@ -66,7 +66,7 @@ func TestBuildPayload(t *testing.T) {
 
 	name, ok := resAttr("service.name")
 	require.True(t, ok, "service.name resource attribute present")
-	assert.Equal(t, "fiddler-claude-code-plugin", name,
+	assert.Equal(t, "fiddler-coding-agent-plugin", name,
 		"service.name names the plugin (producer), not the observed runtime")
 	appID, ok := resAttr("application.id")
 	require.True(t, ok)

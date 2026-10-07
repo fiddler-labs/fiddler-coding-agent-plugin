@@ -34,6 +34,11 @@ Three values **must** agree on every release:
 
 This is enforced by the version-guard step in `.github/workflows/release.yml`. If the tag does not match the manifests, the release fails before GoReleaser publishes.
 
+## Plugin Name
+
+- The plugin `name` (`fiddler-coding-agent-plugin`, in `plugin.json` and the `marketplace.json` entry) is permanent. Users' `enabledPlugins`, `pluginConfigs`, and saved token are keyed by it. Don't rename it.
+- Keep the `renames` entry in `marketplace.json`. It migrates 0.6.x installs from `fiddler-claude-code-plugin`; removing it breaks them.
+
 ## Config Resolution
 
 The endpoint, token, and app id have a single source: Claude Code plugin `userConfig` (`OTLP_URL`, `AUTH_TOKEN`, `APP_ID` in `plugin.json`), exported to hooks as `CLAUDE_PLUGIN_OPTION_*`. If any is missing, the hook does nothing (fail open).
@@ -44,7 +49,7 @@ Key traps:
 
 - **Bare token:** `AUTH_TOKEN` must be the bare token value with **no `Bearer ` prefix**. The plugin prepends `Bearer ` itself (`internal/otlp/export.go`). A leading `Bearer ` produces `Authorization: Bearer Bearer ...`.
 - **No `OTEL_*` fallback:** the `OTEL_EXPORTER_OTLP_*` / `OTEL_RESOURCE_ATTRIBUTES` fallback was removed in 0.7.0 so the plugin never reads a credential from the user's environment (see Security). Do not reintroduce it; `TestLoad_IgnoresOTelEnv` guards this. (Claude Code also strips all `OTEL_*` variables from hook subprocesses, because it uses them for its own telemetry.)
-- **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-claude-code-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` against user, `--settings` and managed `pluginConfigs`; not documented by Anthropic and may change.
+- **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-coding-agent-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` against user, `--settings` and managed `pluginConfigs`; not documented by Anthropic and may change.
 
 Source: `internal/config/config.go`.
 
