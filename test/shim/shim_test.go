@@ -271,13 +271,50 @@ func TestShim_UnstartableBinaryFailsOpen(t *testing.T) {
 	assert.Contains(t, stderr, "could not execute")
 }
 
-// fakeWindowsUname puts a uname on PATH that reports Git Bash on x64 Windows.
-func fakeWindowsUname(t *testing.T) string {
+// Given local builds where only the binary for this machine's OS/arch can run
+// (the other architecture's name holds a file that can't start), when hooks
+// run, then a trace arrives, so the shim picked this machine's binary from the
+// real uname. On the windows-11-arm runner this exercises the "-ARM64"
+// detection with Git Bash's own uname, which reports x86_64 for -m there.
+func TestShim_PicksBinaryForThisMachine(t *testing.T) {
+	other := map[string]string{"amd64": "arm64", "arm64": "amd64"}[runtime.GOARCH]
+	if other == "" {
+		t.Skipf("no alternate architecture for %s", runtime.GOARCH)
+	}
+	bash := findBash(t)
+	root := stagePlugin(t)
+	binPath := func(arch string) string {
+		return filepath.Join(root, "bin", "on-event-"+runtime.GOOS+"-"+arch+exeSuffix)
+	}
+	buildBinary(t, binPath(runtime.GOARCH))
+	require.NoError(t, os.WriteFile(binPath(other), []byte("\x00 not a binary \x00"), 0o755))
+	rcv := newReceiver(t)
+
+	env := shimEnv(t, append(optionEnv(rcv),
+		"CLAUDE_PLUGIN_ROOT="+shellPath(root),
+		"CLAUDE_PLUGIN_DATA="+shellPath(filepath.Join(t.TempDir(), "data")),
+		"FIDDLER_BINARY_SOURCE=local",
+	)...)
+	for _, step := range []struct{ event, payload string }{
+		{"UserPromptSubmit", "user_prompt_submit.json"},
+		{"PostToolUse", "post_tool_use.json"},
+	} {
+		code, stderr := runShim(t, bash, root, env, step.event, step.payload)
+		require.Equal(t, 0, code, "stderr: %s", stderr)
+		require.NotContains(t, stderr, "could not execute",
+			"%s: shim picked the %s binary instead of %s", step.event, other, runtime.GOARCH)
+	}
+	assert.Contains(t, rcv.requests(), "/v1/traces Bearer test-token")
+}
+
+// fakeUname puts a uname on PATH that prints sysname for -s and machine for -m,
+// imitating Git Bash on Windows, and returns a PATH value with it first.
+func fakeUname(t *testing.T, sysname, machine string) string {
 	t.Helper()
 	dir := t.TempDir()
-	script := "#!/bin/sh\ncase \"$1\" in\n  -s) echo MINGW64_NT-10.0-26100 ;;\n  -m) echo x86_64 ;;\n  *) echo MINGW64_NT-10.0-26100 ;;\nesac\n"
+	script := "#!/bin/sh\ncase \"$1\" in\n  -m) echo " + machine + " ;;\n  *) echo " + sysname + " ;;\nesac\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "uname"), []byte(script), 0o755))
-	return dir
+	return "PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH")
 }
 
 // markerStub writes an executable script at path that creates marker when run.
@@ -288,41 +325,56 @@ func markerStub(t *testing.T, path, marker string) {
 	require.NoError(t, os.WriteFile(path, []byte(stub), 0o755))
 }
 
-// Given uname reports Windows (Git Bash), when the shim resolves the binary,
-// then it uses the Windows names: on-event-windows-amd64-<version>.exe in the
-// release cache and on-event-windows-amd64.exe in local mode. Runs on
-// macOS/Linux only; on Windows, Git Bash's own uname wins over PATH and the
-// local/release tests exercise the real names.
+// Given uname reports Git Bash on Windows, when the shim resolves the binary,
+// then it uses the Windows names for the release cache
+// (on-event-windows-<arch>-<version>.exe) and for local builds
+// (on-event-windows-<arch>.exe). On Windows ARM64, Git Bash's uname -m reports
+// x86_64 (its tools run under x64 emulation) and only the "-ARM64" suffix on
+// uname -s identifies the host, so that case must still resolve to arm64.
+// Runs on macOS/Linux only; on Windows, Git Bash's own uname wins over PATH and
+// the local/release tests exercise the real names.
 func TestShim_WindowsNaming(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses a fake uname; covered by the real-name tests on Windows")
 	}
 	bash := findBash(t)
-	pathEnv := "PATH=" + fakeWindowsUname(t) + string(os.PathListSeparator) + os.Getenv("PATH")
 
-	t.Run("release cache", func(t *testing.T) {
-		root := stagePlugin(t)
-		data := filepath.Join(t.TempDir(), "data")
-		marker := filepath.Join(t.TempDir(), "ran")
-		markerStub(t, filepath.Join(data, "bin", "on-event-windows-amd64-"+pluginVersion(t, root)+".exe"), marker)
+	for _, tc := range []struct {
+		name, sysname, machine, arch string
+	}{
+		{"x64", "MINGW64_NT-10.0-26100", "x86_64", "amd64"},
+		{"arm64 under x64 emulation", "MINGW64_NT-10.0-26100-ARM64", "x86_64", "arm64"},
+		{"arm64 msys sysname", "MSYS_NT-10.0-26100-ARM64", "x86_64", "arm64"},
+		{"native arm64 runtime", "MINGW64_NT-10.0-26100", "aarch64", "arm64"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pathEnv := fakeUname(t, tc.sysname, tc.machine)
 
-		env := shimEnv(t, "CLAUDE_PLUGIN_ROOT="+root, "CLAUDE_PLUGIN_DATA="+data, pathEnv)
-		code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
-		require.Equal(t, 0, code, "stderr: %s", stderr)
-		assert.FileExists(t, marker, "cached Windows binary was run; stderr: %s", stderr)
-	})
+			t.Run("release cache", func(t *testing.T) {
+				root := stagePlugin(t)
+				data := filepath.Join(t.TempDir(), "data")
+				marker := filepath.Join(t.TempDir(), "ran")
+				markerStub(t, filepath.Join(data, "bin", "on-event-windows-"+tc.arch+"-"+pluginVersion(t, root)+".exe"), marker)
 
-	t.Run("local build", func(t *testing.T) {
-		root := stagePlugin(t)
-		marker := filepath.Join(t.TempDir(), "ran")
-		markerStub(t, filepath.Join(root, "bin", "on-event-windows-amd64.exe"), marker)
+				env := shimEnv(t, "CLAUDE_PLUGIN_ROOT="+root, "CLAUDE_PLUGIN_DATA="+data, pathEnv)
+				code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
+				require.Equal(t, 0, code, "stderr: %s", stderr)
+				assert.FileExists(t, marker, "cached on-event-windows-%s binary was run; stderr: %s", tc.arch, stderr)
+			})
 
-		env := shimEnv(t, "CLAUDE_PLUGIN_ROOT="+root, "CLAUDE_PLUGIN_DATA="+t.TempDir(),
-			"FIDDLER_BINARY_SOURCE=local", pathEnv)
-		code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
-		require.Equal(t, 0, code, "stderr: %s", stderr)
-		assert.FileExists(t, marker, "local Windows binary was run; stderr: %s", stderr)
-	})
+			t.Run("local build", func(t *testing.T) {
+				root := stagePlugin(t)
+				marker := filepath.Join(t.TempDir(), "ran")
+				markerStub(t, filepath.Join(root, "bin", "on-event-windows-"+tc.arch+".exe"), marker)
+
+				env := shimEnv(t, "CLAUDE_PLUGIN_ROOT="+root, "CLAUDE_PLUGIN_DATA="+t.TempDir(),
+					"FIDDLER_BINARY_SOURCE=local", pathEnv)
+				code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
+				require.Equal(t, 0, code, "stderr: %s", stderr)
+				assert.FileExists(t, marker, "local on-event-windows-%s binary was run; stderr: %s", tc.arch, stderr)
+			})
+		})
+	}
 }
 
 // Given FIDDLER_SHIM_RELEASE_TAG names a published release, when hooks run in

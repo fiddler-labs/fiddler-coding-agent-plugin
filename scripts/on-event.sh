@@ -45,14 +45,27 @@ download() {
 # asset and cache names are unchanged.
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 EXE=""
+WINDOWS_ARM64=false
 case "$OS" in
-  mingw*|msys*|cygwin*) OS="windows"; EXE=".exe" ;;
+  mingw*|msys*|cygwin*)
+    # On Windows ARM64, Git Bash's tools are x64 programs running under
+    # emulation, so `uname -m` reports x86_64. The runtime marks the real host
+    # with an "-ARM64" suffix on `uname -s` (MINGW64_NT-10.0-26100-ARM64).
+    # Older Git for Windows versions without the suffix get the amd64 binary,
+    # which still runs under emulation.
+    case "$OS" in
+      *-arm64) WINDOWS_ARM64=true ;;
+    esac
+    OS="windows"; EXE=".exe" ;;
 esac
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64|amd64)  ARCH="amd64" ;;
   aarch64|arm64) ARCH="arm64" ;;
 esac
+if [ "$WINDOWS_ARM64" = true ]; then
+  ARCH="arm64"
+fi
 
 ASSET_BASE="on-event-${OS}-${ARCH}"
 ASSET="${ASSET_BASE}${EXE}"

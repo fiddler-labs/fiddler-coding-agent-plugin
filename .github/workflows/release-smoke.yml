@@ -1,11 +1,19 @@
 name: release smoke
 
-# Manually run against a published release (normally a release candidate such
-# as v0.8.0-rc.1) before announcing it. On each platform it runs the real hook
-# shim in release mode: download the release asset from GitHub, verify it
-# against checksums.txt, cache it, run it, and check that a trace reaches a
-# local fake endpoint. See docs/release-runbook.md.
+# Tests a published release on every platform: runs the real hook shim in
+# release mode, which downloads the release asset from GitHub, verifies it
+# against checksums.txt, caches and runs it, and checks that a trace reaches a
+# local fake endpoint. release.yml calls this after GoReleaser publishes, for
+# every tag including release candidates. It can also be run by hand (Actions
+# tab or `gh workflow run`) once this file is on the default branch.
+# See docs/release-runbook.md.
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to test, e.g. v0.8.0-rc.1"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:

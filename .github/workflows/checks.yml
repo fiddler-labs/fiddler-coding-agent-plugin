@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   test:
-    name: build & test (${{ matrix.os }})
+    name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Report every platform on a failure rather than cancelling the others:
@@ -52,6 +52,22 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ${{ matrix.race }} ./...
+
+  # CI gate over the OS matrix: one stable result that passes only when every
+  # platform passed, so adding or removing a platform doesn't change which
+  # checks a merge waits on.
+  build-and-test:
+    name: build & test
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All platforms passed
+        env:
+          RESULT: ${{ needs.test.result }}
+        run: |
+          echo "test matrix result: ${RESULT}"
+          [ "${RESULT}" = "success" ]
 
   lint:
     name: lint & format
