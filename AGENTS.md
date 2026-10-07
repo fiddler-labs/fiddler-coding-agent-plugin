@@ -37,14 +37,14 @@ This is enforced by the version-guard step in `.github/workflows/release.yml`. I
 
 Resolution order (first non-empty wins):
 
-1. `CLAUDE_PLUGIN_OPTION_*` (Claude Code userConfig)
+1. `CLAUDE_PLUGIN_OPTION_*` (Claude Code userConfig). Claude Code sets this per option from, highest first: keychain (sensitive dialog values) > managed `pluginConfigs` > `--settings` `pluginConfigs` > user `pluginConfigs` (includes non-sensitive dialog values) > settings `env`. A value in settings `env` only reaches the hook when no stored value exists for that option; a stored value, even an empty one, overrides it. (Based on reading Claude Code v2.1.285; not documented by Anthropic.)
 2. `OTEL_EXPORTER_OTLP_*` / `OTEL_RESOURCE_ATTRIBUTES` (standard OTel env vars)
 
 Key traps:
 
 - **Bare token:** `AUTH_TOKEN` must be the bare token value with **no `Bearer ` prefix**. The plugin prepends `Bearer ` itself (`internal/otlp/export.go`). A leading `Bearer ` produces `Authorization: Bearer Bearer ...`.
 - **OTel stripping:** Claude Code strips **all** `OTEL_*` variables from every hook subprocess, whether they come from settings `env` or from a shell `export`, because it uses them for its own telemetry. The OTel fallback therefore only works when the variables are set *inside* the hook process: `.env.local` sourced by `scripts/on-event.sh` (`--plugin-dir` development), or running the binary directly. For installed plugins, use `userConfig`.
-- **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-claude-code-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` (user and `--settings` sources); not documented by Anthropic and may change.
+- **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-claude-code-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` against user, `--settings` and managed `pluginConfigs`; not documented by Anthropic and may change.
 
 Source: `internal/config/config.go`.
 
