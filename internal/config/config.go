@@ -4,9 +4,16 @@
 // the environment directly. Config resolution lives here so the pipeline
 // stays runtime-agnostic.
 //
-// Resolution order (first non-empty wins):
-//  1. Claude Code plugin userConfig (CLAUDE_PLUGIN_OPTION_*)
-//  2. Standard OTel environment variables (OTEL_EXPORTER_OTLP_*)
+// The endpoint, ingestion token, and application id come only from Claude
+// Code plugin userConfig, which Claude Code exports to hook processes as
+// CLAUDE_PLUGIN_OPTION_<KEY>. The token is a sensitive userConfig option, so
+// Claude Code keeps it in secure storage and the plugin only ever sees the
+// value the user chose to give it.
+//
+// Do not add fallbacks that read a credential already present on the user's
+// machine (OTEL_* env vars, config files, another tool's state). Anthropic's
+// plugin directory holds plugins that do so for manual review; the OTEL_*
+// fallback was removed in 0.7.0 for this reason.
 package config
 
 import (
@@ -47,10 +54,11 @@ type Config struct {
 	PluginVersion string
 
 	// OmitUserInfo controls whether personally-identifying account attributes
-	// are emitted. When true, otlp.BuildPayload omits the user.email and
-	// user.account_uuid resource attributes; the hashed user.id and the
-	// org-level organization.id are still emitted (user.id is already a hash,
-	// and organization.id is not personal). Defaults to false.
+	// are emitted. When true, otlp.BuildPayload omits the user.name,
+	// user.email, user.account_uuid, and user.identity.source resource
+	// attributes; the hashed user.id and the org-level organization.id are
+	// still emitted (user.id is already a hash, and organization.id is not
+	// personal). Defaults to false.
 	OmitUserInfo bool
 
 	// Identity/workspace attributes, resolved from process-local sources (local
@@ -84,40 +92,16 @@ func (c *Config) Valid() bool {
 	return c.Endpoint != "" && c.APIKey != "" && c.AppID != ""
 }
 
-// Load resolves configuration from available sources.
-//
-// Priority: Claude Code plugin userConfig (CLAUDE_PLUGIN_OPTION_*) takes
-// precedence over the standard OTel environment variables. This lets the
-// plugin work out of the box when installed via Claude Code (userConfig
-// prompts on first load) while remaining compatible with
-// organization-managed OTel env vars.
+// Load resolves configuration from the Claude Code plugin userConfig values
+// (CLAUDE_PLUGIN_OPTION_*) that Claude Code exports to hook processes. Claude
+// Code prompts for them when the plugin is enabled; they can be changed later
+// from /plugin > Installed > Configure options. Missing values leave the
+// config invalid and the hook does nothing (fail open).
 func Load() *Config {
-	// --- Source 1: Claude Code plugin userConfig ---
-	// Claude Code exposes userConfig values as CLAUDE_PLUGIN_OPTION_<KEY>.
-	pluginEndpoint := strings.TrimRight(os.Getenv("CLAUDE_PLUGIN_OPTION_OTLP_URL"), "/")
-	pluginToken := os.Getenv("CLAUDE_PLUGIN_OPTION_AUTH_TOKEN")
-	pluginAppID := os.Getenv("CLAUDE_PLUGIN_OPTION_APP_ID")
-
-	// --- Source 2: Standard OTel env vars (fallback) ---
-	otelEndpoint := strings.TrimRight(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), "/")
-	headers := parseKV(os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"))
-	resourceAttrs := parseKV(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"))
-
-	otelAppID := headers["fiddler-application-id"]
-	if otelAppID == "" {
-		otelAppID = resourceAttrs["application.id"]
-	}
-
-	otelToken := ""
-	if auth := headers["Authorization"]; auth != "" {
-		otelToken = strings.TrimSpace(strings.TrimPrefix(auth, "Bearer"))
-	}
-
-	// --- Resolve: plugin option wins, then OTel env var ---
 	return &Config{
-		Endpoint: firstNonEmpty(pluginEndpoint, otelEndpoint),
-		APIKey:   firstNonEmpty(pluginToken, otelToken),
-		AppID:    firstNonEmpty(pluginAppID, otelAppID),
+		Endpoint: strings.TrimRight(os.Getenv("CLAUDE_PLUGIN_OPTION_OTLP_URL"), "/"),
+		APIKey:   os.Getenv("CLAUDE_PLUGIN_OPTION_AUTH_TOKEN"),
+		AppID:    os.Getenv("CLAUDE_PLUGIN_OPTION_APP_ID"),
 		// Defaults to false (user identity attributes are included); set
 		// FIDDLER_OMIT_USER_INFO=true to drop them.
 		OmitUserInfo:  envBool("FIDDLER_OMIT_USER_INFO", false),
@@ -146,29 +130,6 @@ func pluginVersion() string {
 		return ""
 	}
 	return m.Version
-}
-
-// firstNonEmpty returns the first non-empty string, or "".
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-// parseKV parses comma-separated key=value pairs (the format used by
-// OTEL_EXPORTER_OTLP_HEADERS and OTEL_RESOURCE_ATTRIBUTES).
-func parseKV(raw string) map[string]string {
-	result := make(map[string]string)
-	for _, pair := range strings.Split(raw, ",") {
-		pair = strings.TrimSpace(pair)
-		if k, v, ok := strings.Cut(pair, "="); ok {
-			result[strings.TrimSpace(k)] = strings.TrimSpace(v)
-		}
-	}
-	return result
 }
 
 // envBool reads a boolean environment variable with a default.

@@ -89,9 +89,39 @@ claude plugin install fiddler-claude-code-plugin@fiddler-plugins \
 
 To change values later, run `/plugin configure fiddler-claude-code-plugin@fiddler-plugins` in Claude Code.
 
-> `CLAUDE_PLUGIN_OPTION_*` variables set under `"env"` in `settings.json` still reach the plugin at runtime, but they don't stop the configuration dialog, and any value stored through the dialog or `pluginConfigs` takes precedence over them. `OTEL_EXPORTER_OTLP_*` variables are stripped from hook processes by Claude Code and don't work. Prefer `pluginConfigs`.
+> `CLAUDE_PLUGIN_OPTION_*` variables set under `"env"` in `settings.json` still reach the plugin at runtime, but they don't stop the configuration dialog, and any value stored through the dialog or `pluginConfigs` takes precedence over them. The plugin doesn't read `OTEL_EXPORTER_OTLP_*` variables (Claude Code also strips them from hook processes). Prefer `pluginConfigs`.
 
-Restart Claude Code after changing configuration values.
+Restart Claude Code after changing configuration values. Until all three options are set, the plugin does nothing.
+
+## What the plugin does
+
+The plugin registers hooks for Claude Code session, prompt, tool, permission, subagent, and stop events. Each hook runs a small script that starts the plugin's binary. The hooks never block or slow your session: if anything fails, the hook exits quietly and the session continues.
+
+### Downloads
+
+On first use of each plugin version, the script downloads the plugin's prebuilt binary for your OS and CPU from this repository's GitHub Releases (`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases`) over HTTPS. It verifies the binary's SHA-256 checksum against the release's `checksums.txt` and refuses to run a binary that doesn't match. The verified binary is cached in the plugin's data directory, so it is downloaded once per version. The binary is built from the Go source in this repository.
+
+### Data sent to Fiddler
+
+The plugin sends OpenTelemetry trace data only to the Fiddler endpoint you configure, authenticated with the ingestion token you configure. It sends nothing anywhere else.
+
+Each trace covers one turn of a session and includes:
+
+- **Conversation content:** your prompts, Claude's responses, and the message history sent with each model call.
+- **Tool activity:** each tool's name, arguments, and result, plus permission decisions and denial reasons.
+- **Usage:** model name, token counts, finish reasons, timings, and errors.
+- **Session context:** session ID, working directory, terminal type, how Claude Code was launched, and the Claude Code and plugin versions.
+- **Developer identity:** your name and email from `git config` (falling back to the email on your Claude account), plus the hashed user ID, account UUID, and organization UUID that Claude Code stores in `~/.claude.json`. These match the identity attributes in Claude Code's own OpenTelemetry data.
+
+Long content is truncated: most fields are capped at 64 KB, and the message history at about 1 MB per model call.
+
+To leave out your name, email, and account UUID, set `FIDDLER_OMIT_USER_INFO=true` in the environment you start Claude Code from. The hashed user ID and organization UUID are still sent.
+
+To produce token counts and message history, the plugin reads the session transcript file that Claude Code writes for the current session.
+
+### Data kept on your machine
+
+The plugin keeps short-lived state under its plugin data directory (`~/.claude/plugins/data/<plugin-id>/`) to link hook events into one trace. This state includes the current prompt and the inputs of tools that are still running. It is removed when the turn, tool call, or session ends, and leftover entries from interrupted sessions are swept automatically. It also writes a debug log, `plugin.log`, in the same directory. The log contains only IDs and counts, never content, identity, or tokens.
 
 ## Development
 
@@ -101,19 +131,14 @@ For working on the plugin itself or testing via `--plugin-dir`:
 git clone git@github.com:fiddler-labs/fiddler-coding-agent-plugin.git
 cd fiddler-coding-agent-plugin
 cp .env.local.example .env.local   # fill in endpoint / token / app-id
-claude --plugin-dir .
+make dev                           # starts Claude Code with the plugin loaded from this checkout
 ```
 
-By default the shim downloads the released binary from GitHub Releases — no build step required.
+`make dev` exports the values in `.env.local` as the same `CLAUDE_PLUGIN_OPTION_*` variables an installed plugin receives, then runs `claude --plugin-dir .`. The plugin never reads `.env.local` itself. Pass extra flags to Claude Code with `make dev ARGS="--debug"`.
 
-To build from source, set `FIDDLER_BINARY_SOURCE=local` in `.env.local` and run:
+By default the shim downloads the released binary from GitHub Releases, so no build step is required.
 
-```bash
-make build
-claude --plugin-dir .
-```
-
-Rebuild and restart to pick up changes. See `.env.local.example` for the `OTEL_*` environment variable fallback used in `--plugin-dir` mode.
+To build from source, uncomment `FIDDLER_BINARY_SOURCE=local` in `.env.local`. `make dev` then runs `make build` before starting Claude Code. Exit and run `make dev` again to pick up changes.
 
 ## Releasing
 

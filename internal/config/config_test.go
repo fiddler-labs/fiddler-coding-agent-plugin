@@ -9,16 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Given both CLAUDE_PLUGIN_OPTION_* and OTEL_* env vars are set, when config is
-// loaded, then the plugin options win over the OTel fallback and the endpoint's
-// trailing slash is trimmed.
-func TestLoad_PluginOptionsWin(t *testing.T) {
+// Given the CLAUDE_PLUGIN_OPTION_* userConfig env vars are set, when config is
+// loaded, then the values are read from them and the endpoint's trailing slash
+// is trimmed.
+func TestLoad_FromPluginOptions(t *testing.T) {
 	t.Setenv("CLAUDE_PLUGIN_OPTION_OTLP_URL", "https://plugin.example.com/")
 	t.Setenv("CLAUDE_PLUGIN_OPTION_AUTH_TOKEN", "plugin-tok")
 	t.Setenv("CLAUDE_PLUGIN_OPTION_APP_ID", "plugin-app")
-	// OTel env vars present but should be overridden by plugin options.
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.com")
-	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Bearer otel-tok,fiddler-application-id=otel-app")
 
 	cfg := Load()
 	assert.Equal(t, "https://plugin.example.com", cfg.Endpoint, "trailing slash trimmed")
@@ -27,30 +24,23 @@ func TestLoad_PluginOptionsWin(t *testing.T) {
 	assert.True(t, cfg.Valid())
 }
 
-// Given no plugin options but the standard OTEL_* env vars set, when config is
-// loaded, then the values come from the OTel vars and the "Bearer " prefix is
-// stripped from the token.
-func TestLoad_FallsBackToOTelEnv(t *testing.T) {
-	// No plugin options set; OTel env vars provide everything.
+// Given only the standard OTEL_* env vars are set (no plugin options), when
+// config is loaded, then nothing is read from them and the config is invalid.
+// Regression guard: the plugin must not pick up a credential already present in
+// the user's environment (see the package doc).
+func TestLoad_IgnoresOTelEnv(t *testing.T) {
+	t.Setenv("CLAUDE_PLUGIN_OPTION_OTLP_URL", "")
+	t.Setenv("CLAUDE_PLUGIN_OPTION_AUTH_TOKEN", "")
+	t.Setenv("CLAUDE_PLUGIN_OPTION_APP_ID", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.com")
 	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Bearer otel-tok,fiddler-application-id=otel-app")
-
-	cfg := Load()
-	assert.Equal(t, "https://otel.example.com", cfg.Endpoint)
-	assert.Equal(t, "otel-tok", cfg.APIKey, "Bearer prefix stripped")
-	assert.Equal(t, "otel-app", cfg.AppID)
-}
-
-// Given the app id is absent from the OTLP headers but present in
-// OTEL_RESOURCE_ATTRIBUTES, when config is loaded, then the app id falls back to
-// the resource attribute.
-func TestLoad_AppIDFromResourceAttrs(t *testing.T) {
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.com")
-	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Bearer otel-tok")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "application.id=resource-app")
 
 	cfg := Load()
-	assert.Equal(t, "resource-app", cfg.AppID, "app id falls back to resource attribute")
+	assert.Empty(t, cfg.Endpoint, "endpoint not read from OTEL_EXPORTER_OTLP_ENDPOINT")
+	assert.Empty(t, cfg.APIKey, "token not read from OTEL_EXPORTER_OTLP_HEADERS")
+	assert.Empty(t, cfg.AppID, "app id not read from OTEL_* headers or resource attributes")
+	assert.False(t, cfg.Valid())
 }
 
 // Given only the required plugin options are set, when config is loaded, then
