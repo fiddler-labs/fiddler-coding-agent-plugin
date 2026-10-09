@@ -102,6 +102,8 @@ In 0.7.0 the plugin was renamed from `fiddler-claude-code-plugin` to `fiddler-co
 
 If your organization supplies the options through managed settings, update the plugin ID in `enabledPlugins` and `pluginConfigs` there. Claude Code doesn't rewrite managed settings.
 
+Traces now report `service.name` as `fiddler-coding-agent-plugin` instead of `fiddler-claude-code-plugin`. Update any dashboards, filters, or alerts that match on the old value.
+
 ## What the plugin does
 
 The plugin registers hooks for Claude Code session, prompt, tool, permission, subagent, and stop events. Each hook runs a small script that starts the plugin's binary. The hooks never block or slow your session: if anything fails, the hook exits quietly and the session continues.
