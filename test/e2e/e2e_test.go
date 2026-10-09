@@ -169,7 +169,7 @@ func TestClaudeCodeFullTurn(t *testing.T) {
 		return ""
 	}
 	require.NotEmpty(t, resources)
-	assert.Equal(t, "fiddler-claude-code-plugin", resAttr(resources[0], "service.name"))
+	assert.Equal(t, "fiddler-coding-agent-plugin", resAttr(resources[0], "service.name"))
 	assert.Equal(t, "app", resAttr(resources[0], "application.id"))
 
 	// The instrumentation scope is the plugin's own, not Anthropic's native

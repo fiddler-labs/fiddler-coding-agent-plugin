@@ -8,24 +8,19 @@
 #            $CLAUDE_PLUGIN_DATA/bin/ so it is downloaded only once per version.
 #
 #   local    Use only a locally built binary (make build / make build-platform).
-#            Set this in .env.local when developing the plugin.
+#            Export this in the shell you start Claude Code from when
+#            developing the plugin.
 #
 # Both modes fail open (exit 0) — a hook never blocks the session.
+#
+# The shim reads no config or credential file. Plugin config (endpoint, token,
+# app id) reaches the binary only through the hook environment, as the
+# CLAUDE_PLUGIN_OPTION_* variables Claude Code exports from userConfig.
 
 set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:?CLAUDE_PLUGIN_ROOT not set}"
 REPO="fiddler-labs/fiddler-coding-agent-plugin"
-
-# Source local config if present (gitignored, never committed).
-# This provides endpoint/token/app-id for --plugin-dir local testing
-# where Claude Code's userConfig prompts are not triggered.
-ENV_FILE="${PLUGIN_ROOT}/.env.local"
-if [ -f "$ENV_FILE" ]; then
-  set -a  # auto-export all sourced vars
-  . "$ENV_FILE"
-  set +a
-fi
 
 # download URL DEST: fetch URL over HTTPS into DEST. Prefers curl and falls
 # back to wget. Returns non-zero on any failure (HTTP error such as 404,

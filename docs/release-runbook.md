@@ -80,9 +80,13 @@ Confirm the release contains:
 - `checksums.txt`
 
 Optionally verify the shim download path end-to-end in a fresh Claude Code
-session (or manually with
-`curl -fsSLO https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases/download/v0.4.0/on-event-darwin-arm64`
-followed by a checksum comparison against `checksums.txt`).
+session, or check one asset's checksum manually:
+
+```bash
+gh release download v0.4.0 --repo fiddler-labs/fiddler-coding-agent-plugin \
+  -p on-event-darwin-arm64 -p checksums.txt
+grep ' on-event-darwin-arm64$' checksums.txt | shasum -a 256 -c
+```
 
 ## Integrity verification
 
