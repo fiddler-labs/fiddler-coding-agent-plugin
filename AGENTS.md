@@ -43,7 +43,15 @@ This is enforced by the version-guard step in `.github/workflows/release.yml`. I
 
 The endpoint, token, and app id have a single source: Claude Code plugin `userConfig` (`OTLP_URL`, `AUTH_TOKEN`, `APP_ID` in `plugin.json`), exported to hooks as `CLAUDE_PLUGIN_OPTION_*`. If any is missing, the hook does nothing (fail open).
 
-Claude Code sets each `CLAUDE_PLUGIN_OPTION_*` value from, highest first: keychain (sensitive dialog values) > managed `pluginConfigs` > `--settings` `pluginConfigs` > user `pluginConfigs` (includes non-sensitive dialog values) > settings `env`. A value in settings `env` only reaches the hook when no stored value exists for that option; a stored value, even an empty one, overrides it. (Based on reading Claude Code v2.1.285; not documented by Anthropic.)
+Claude Code sets each `CLAUDE_PLUGIN_OPTION_*` value from, highest first:
+
+1. Keychain (sensitive dialog values)
+2. Managed `pluginConfigs`
+3. `--settings` `pluginConfigs`
+4. User `pluginConfigs` (includes non-sensitive dialog values)
+5. Settings `env`
+
+A value in settings `env` only reaches the hook when no stored value exists for that option; a stored value, even an empty one, overrides it. (Based on reading Claude Code v2.1.285; not documented by Anthropic.)
 
 Key traps:
 
