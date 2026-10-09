@@ -37,7 +37,14 @@ This is enforced by the version-guard step in `.github/workflows/release.yml`. I
 
 Resolution order (first non-empty wins):
 
-1. `CLAUDE_PLUGIN_OPTION_*` (Claude Code userConfig). Claude Code sets this per option from, highest first: keychain (sensitive dialog values) > managed `pluginConfigs` > `--settings` `pluginConfigs` > user `pluginConfigs` (includes non-sensitive dialog values) > settings `env`. A value in settings `env` only reaches the hook when no stored value exists for that option; a stored value, even an empty one, overrides it. (Based on reading Claude Code v2.1.285; not documented by Anthropic.)
+1. `CLAUDE_PLUGIN_OPTION_*` (Claude Code userConfig). Claude Code sets this per option from, highest first:
+   1. Keychain (sensitive dialog values)
+   2. Managed `pluginConfigs`
+   3. `--settings` `pluginConfigs`
+   4. User `pluginConfigs` (includes non-sensitive dialog values)
+   5. Settings `env`
+
+   A value in settings `env` only reaches the hook when no stored value exists for that option; a stored value, even an empty one, overrides it. (Based on reading Claude Code v2.1.285; not documented by Anthropic.)
 2. `OTEL_EXPORTER_OTLP_*` / `OTEL_RESOURCE_ATTRIBUTES` (standard OTel env vars)
 
 Key traps:

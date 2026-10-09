@@ -89,7 +89,7 @@ claude plugin install fiddler-claude-code-plugin@fiddler-plugins \
 
 To change values later, run `/plugin configure fiddler-claude-code-plugin@fiddler-plugins` in Claude Code.
 
-> `CLAUDE_PLUGIN_OPTION_*` variables set under `"env"` in `settings.json` still reach the plugin at runtime, but they don't stop the configuration dialog, and any value stored through the dialog or `pluginConfigs` takes precedence over them. `OTEL_EXPORTER_OTLP_*` variables are stripped from hook processes by Claude Code and don't work. Prefer `pluginConfigs`.
+> **Note: migrating from `env`-based config.** `CLAUDE_PLUGIN_OPTION_*` variables set under `"env"` in `settings.json` still reach the plugin at runtime, but they don't stop the configuration dialog, and any value stored through the dialog or `pluginConfigs` takes precedence over them. `OTEL_EXPORTER_OTLP_*` variables are stripped from hook processes by Claude Code and don't work. Prefer `pluginConfigs`.
 
 Restart Claude Code after changing configuration values.
 
