@@ -7,3 +7,6 @@
 
 # The hook shim is executed by bash: always LF.
 *.sh text eol=lf
+
+# Images are binary: never normalize line endings or diff them as text.
+*.png binary
