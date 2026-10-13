@@ -76,7 +76,7 @@ Default file locations:
 
 If your organization already delivers managed settings from the claude.ai admin console or through MDM, add these keys there instead. By default Claude Code uses only the highest-ranked managed source and ignores `managed-settings.json` when another source is present. To check, run `/status`: the `Setting sources` line names the source in use, and `Skipped sources` lists any it ignored.
 
-Managed values take precedence over user settings. One exception: a token that a user previously entered in the dialog is kept in the OS keychain (or `~/.claude/.credentials.json`), and that stored value overrides the managed one. Have that user uninstall and reinstall the plugin to clear it.
+Managed values take precedence over user settings. One exception: a token that a user previously entered in the dialog is kept in Claude Code's secure credential storage, and that stored value overrides the managed one. Have that user uninstall and reinstall the plugin to clear it.
 
 To check the result on a machine, run:
 
