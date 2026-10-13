@@ -129,9 +129,8 @@ real GitHub release assets before users get it:
 4. When it passes, set both manifests to `0.8.0`, merge, and follow the normal
    release steps above.
 
-Tags in this repository can't be moved or deleted without bypassing the
-"Restrict tags" ruleset, so treat a pushed tag as final: if `v0.8.0-rc.1` turns
-out broken, fix it on the branch and cut `v0.8.0-rc.2`.
+Treat a pushed tag as final: if `v0.8.0-rc.1` turns out broken, fix it on the
+branch and cut `v0.8.0-rc.2`.
 
 ## Integrity verification
 
@@ -170,9 +169,8 @@ open and sends no telemetry).
 If the version-guard step fails, the release was **not published**. Fix the
 drift and re-release.
 
-Deleting and re-pushing a tag (steps 1 and 4) requires bypassing the "Restrict
-tags" ruleset. If you can't bypass it, leave the tag in place and release the
-next patch version instead.
+If the tag can't be replaced, leave it in place and release the next patch
+version instead.
 
 ```bash
 # 1. Delete the tag (locally and remotely)
