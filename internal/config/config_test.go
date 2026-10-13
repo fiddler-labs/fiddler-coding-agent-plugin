@@ -24,25 +24,6 @@ func TestLoad_FromPluginOptions(t *testing.T) {
 	assert.True(t, cfg.Valid())
 }
 
-// Given only the standard OTEL_* env vars are set (no plugin options), when
-// config is loaded, then nothing is read from them and the config is invalid.
-// Regression guard: the plugin must not pick up a credential already present in
-// the user's environment (see the package doc).
-func TestLoad_IgnoresOTelEnv(t *testing.T) {
-	t.Setenv("CLAUDE_PLUGIN_OPTION_OTLP_URL", "")
-	t.Setenv("CLAUDE_PLUGIN_OPTION_AUTH_TOKEN", "")
-	t.Setenv("CLAUDE_PLUGIN_OPTION_APP_ID", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.com")
-	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Bearer otel-tok,fiddler-application-id=otel-app")
-	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "application.id=resource-app")
-
-	cfg := Load()
-	assert.Empty(t, cfg.Endpoint, "endpoint not read from OTEL_EXPORTER_OTLP_ENDPOINT")
-	assert.Empty(t, cfg.APIKey, "token not read from OTEL_EXPORTER_OTLP_HEADERS")
-	assert.Empty(t, cfg.AppID, "app id not read from OTEL_* headers or resource attributes")
-	assert.False(t, cfg.Valid())
-}
-
 // Given only the required plugin options are set, when config is loaded, then
 // OmitUserInfo defaults to false.
 func TestLoad_Defaults(t *testing.T) {

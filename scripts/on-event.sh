@@ -18,9 +18,8 @@
 # and the binary gets an ".exe" suffix. Without Git Bash, Claude Code runs hooks
 # through PowerShell, which cannot run this script (unsupported).
 #
-# The shim reads no config or credential file. Plugin config (endpoint, token,
-# app id) reaches the binary only through the hook environment, as the
-# CLAUDE_PLUGIN_OPTION_* variables Claude Code exports from userConfig.
+# The shim reads no config file; the plugin's options reach the binary only
+# through the hook environment.
 
 set -euo pipefail
 

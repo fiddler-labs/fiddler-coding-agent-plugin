@@ -18,7 +18,7 @@
     },
     "AUTH_TOKEN": {
       "title": "Fiddler Ingestion Token",
-      "description": "Fiddler ingestion token (Bearer token value)",
+      "description": "Fiddler ingestion token (bare value, no \"Bearer \" prefix)",
       "type": "string",
       "sensitive": true
     },
