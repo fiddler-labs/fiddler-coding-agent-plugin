@@ -15,7 +15,7 @@ Claude Code runs plugin hooks through Git Bash when Git for Windows is installed
 
 The Windows binary is **not yet code-signed**. Like every release binary, it is downloaded from this repository's GitHub Releases and checked against the release's SHA-256 checksums before it runs. Machines with strict application-control policies (AppLocker, App Control for Business, Smart App Control) or endpoint security tools may block an unsigned program in the user's profile directory. If that happens, the plugin sends no telemetry, but Claude Code keeps working normally: the hooks never block a session. Signed Windows binaries are planned for a later release.
 
-The binary is cached in the plugin's data directory, as on macOS and Linux.
+The binary is cached as `on-event-windows-<arch>-<version>.exe` in the `bin` folder of the plugin's data directory ([`CLAUDE_PLUGIN_DATA`](https://code.claude.com/docs/en/plugins-reference#environment-variables)), as on macOS and Linux.
 
 ## Install
 
@@ -132,7 +132,7 @@ Each trace covers one turn of a session and includes:
 - **Tool activity:** each tool's name, arguments, and result, plus permission decisions and denial reasons.
 - **Usage:** model name, token counts, finish reasons, timings, and errors.
 - **Session context:** session ID, working directory, terminal type, how Claude Code was launched, and the Claude Code and plugin versions.
-- **Developer identity:** your name and email from `git config` (falling back to the email on your Claude account), plus the hashed user ID, account UUID, and organization UUID from your Claude Code account data. These match the identity attributes in Claude Code's own OpenTelemetry data.
+- **Developer identity:** your name and email from `git config` (falling back to the email on your Claude account), plus the hashed user ID, account UUID, and organization UUID that the plugin reads from the account details Claude Code stores on your machine. These match the identity attributes in Claude Code's own OpenTelemetry data.
 
 Long content is truncated: most fields are capped at 64 KB, and the message history at about 1 MB per model call.
 
@@ -142,7 +142,7 @@ To produce token counts and message history, the plugin reads the session transc
 
 ### Data kept on your machine
 
-The plugin keeps short-lived state in the data directory Claude Code provides for the plugin, to link hook events into one trace. This state includes the current prompt and the inputs of tools that are still running. It is removed when the turn, tool call, or session ends, and leftover entries from interrupted sessions are swept automatically. It also writes a debug log, `plugin.log`, in the same directory. The log contains only IDs and counts, never content, identity, or tokens.
+The plugin keeps short-lived state in the data directory Claude Code provides for the plugin ([`CLAUDE_PLUGIN_DATA`](https://code.claude.com/docs/en/plugins-reference#environment-variables)), to link hook events into one trace. This state includes the current prompt and the inputs of tools that are still running. It is removed when the turn, tool call, or session ends, and leftover entries from interrupted sessions are swept automatically. It also writes a debug log, `plugin.log`, in the same directory. The log contains only IDs and counts, never content, identity, or tokens.
 
 ## Development
 
