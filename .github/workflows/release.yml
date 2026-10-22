@@ -62,6 +62,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Require committed checksums.txt
+        run: test -f checksums.txt || { echo "::error::checksums.txt is missing; run 'make checksums' and commit it"; exit 1; }
+      - name: Use the exact Go toolchain pinned in go.mod
+        run: echo "GOTOOLCHAIN=$(awk '/^toolchain /{print $2}' go.mod)" >> "$GITHUB_ENV"
+      - name: Build a snapshot (no publish)
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean
+      - name: Verify built binaries match the committed checksums
+        run: diff -u <(LC_ALL=C sort -k2 checksums.txt) <(LC_ALL=C sort -k2 dist/checksums.txt)
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser

@@ -93,6 +93,11 @@ func stagePlugin(t *testing.T) string {
 		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, rel)), 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(root, rel), data, 0o755))
 	}
+	// Copy the committed checksums.txt when present; the shim verifies the
+	// downloaded binary against it.
+	if data, err := os.ReadFile(filepath.Join(src, "checksums.txt")); err == nil {
+		require.NoError(t, os.WriteFile(filepath.Join(root, "checksums.txt"), data, 0o644))
+	}
 	return root
 }
 
@@ -379,9 +384,11 @@ func TestShim_WindowsNaming(t *testing.T) {
 
 // Given FIDDLER_SHIM_RELEASE_TAG names a published release, when hooks run in
 // the default release mode, then the shim downloads that release's binary for
-// this OS/arch, verifies its checksum, caches it under the versioned name,
-// prunes an older cached version, and the binary exports a trace. Opt-in: it
-// needs network access and an existing release.
+// this OS/arch, verifies it against the committed checksums.txt, caches it under
+// the versioned name, prunes an older cached version, and the binary exports a
+// trace. Opt-in: it needs network access and an existing release. For a manual
+// run against a tag other than the checked-out commit, check out that tag first
+// so the committed checksums.txt matches the release.
 func TestShim_ReleaseDownload(t *testing.T) {
 	tag := os.Getenv("FIDDLER_SHIM_RELEASE_TAG")
 	if tag == "" {
@@ -417,4 +424,63 @@ func TestShim_ReleaseDownload(t *testing.T) {
 	assert.FileExists(t, cached, "verified binary cached under the versioned name; stderr: %s", stderr)
 	assert.NoFileExists(t, stale, "older cached version pruned")
 	assert.Contains(t, rcv.requests(), "/v1/traces Bearer test-token", "stderr: %s", stderr)
+}
+
+// Given a staged plugin with no checksums.txt, when a hook runs in release mode,
+// then the shim installs nothing, exits 0, and names the missing pin. Opt-in
+// like TestShim_ReleaseDownload.
+func TestShim_ReleaseNoPinnedChecksum(t *testing.T) {
+	tag := os.Getenv("FIDDLER_SHIM_RELEASE_TAG")
+	if tag == "" {
+		t.Skip("set FIDDLER_SHIM_RELEASE_TAG (e.g. v0.8.0-rc.1) to test a published release")
+	}
+	require.Regexp(t, `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`, tag, "FIDDLER_SHIM_RELEASE_TAG must be v<semver>")
+	bash := findBash(t)
+	root := stagePlugin(t)
+	version := strings.TrimPrefix(tag, "v")
+	setPluginVersion(t, root, version)
+	// Remove the pin so the shim has nothing to verify against.
+	_ = os.Remove(filepath.Join(root, "checksums.txt"))
+
+	data := filepath.Join(t.TempDir(), "data")
+	env := shimEnv(t,
+		"CLAUDE_PLUGIN_ROOT="+shellPath(root),
+		"CLAUDE_PLUGIN_DATA="+shellPath(data),
+	)
+	code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
+	require.Equal(t, 0, code, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "no pinned checksum")
+	cached := filepath.Join(data, "bin", "on-event-"+runtime.GOOS+"-"+runtime.GOARCH+"-"+version+exeSuffix)
+	assert.NoFileExists(t, cached, "no binary installed without a pinned checksum")
+}
+
+// Given a staged checksums.txt whose entry for this asset is wrong, when a hook
+// runs in release mode, then the shim installs nothing, exits 0, and reports a
+// mismatch. Opt-in like TestShim_ReleaseDownload.
+func TestShim_ReleaseChecksumMismatch(t *testing.T) {
+	tag := os.Getenv("FIDDLER_SHIM_RELEASE_TAG")
+	if tag == "" {
+		t.Skip("set FIDDLER_SHIM_RELEASE_TAG (e.g. v0.8.0-rc.1) to test a published release")
+	}
+	require.Regexp(t, `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`, tag, "FIDDLER_SHIM_RELEASE_TAG must be v<semver>")
+	bash := findBash(t)
+	root := stagePlugin(t)
+	version := strings.TrimPrefix(tag, "v")
+	setPluginVersion(t, root, version)
+
+	asset := "on-event-" + runtime.GOOS + "-" + runtime.GOARCH + exeSuffix
+	// Overwrite the pinned entry for this asset with a wrong hash.
+	bad := strings.Repeat("0", 64) + "  " + asset + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(root, "checksums.txt"), []byte(bad), 0o644))
+
+	data := filepath.Join(t.TempDir(), "data")
+	env := shimEnv(t,
+		"CLAUDE_PLUGIN_ROOT="+shellPath(root),
+		"CLAUDE_PLUGIN_DATA="+shellPath(data),
+	)
+	code, stderr := runShim(t, bash, root, env, "PostToolUse", "post_tool_use.json")
+	require.Equal(t, 0, code, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "mismatch")
+	cached := filepath.Join(data, "bin", "on-event-"+runtime.GOOS+"-"+runtime.GOARCH+"-"+version+exeSuffix)
+	assert.NoFileExists(t, cached, "no binary installed on checksum mismatch")
 }

@@ -88,7 +88,7 @@ jobs:
         run: bash -n scripts/on-event.sh
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.15.0
       # Same linters with Windows build constraints, so Windows-only code paths
       # and Windows-specific API misuse are checked too.
       - name: golangci-lint (GOOS=windows)
@@ -96,4 +96,29 @@ jobs:
         env:
           GOOS: windows
         with:
-          version: v2.12.2
+          version: v2.15.0
+
+  # Catch a stale checksums.txt at review time: build the release binaries with
+  # the pinned toolchain and compare against the committed file. The release
+  # workflow runs the same gate before publishing.
+  checksums:
+    name: checksums up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Require committed checksums.txt
+        run: test -f checksums.txt || { echo "::error::checksums.txt is missing; run 'make checksums' and commit it"; exit 1; }
+      - name: Use the exact Go toolchain pinned in go.mod
+        run: echo "GOTOOLCHAIN=$(awk '/^toolchain /{print $2}' go.mod)" >> "$GITHUB_ENV"
+      - name: Build a snapshot (no publish)
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean
+      - name: Verify committed checksums match a fresh build
+        run: diff -u <(LC_ALL=C sort -k2 checksums.txt) <(LC_ALL=C sort -k2 dist/checksums.txt)

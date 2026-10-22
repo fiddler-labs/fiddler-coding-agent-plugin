@@ -65,7 +65,8 @@ Source: `internal/config/config.go`.
 
 - **No `jq` dependency.** Reads `plugin.json` with `grep`/`sed`. Do not add a `jq` requirement.
 - **Reads no config or credential file.** Config reaches the binary only through the hook environment. Do not reintroduce sourcing `.env.local` (or any other file) from the shim.
-- Checksum verification on binary download is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
+- The shim verifies the downloaded binary against `checksums.txt` committed in the repo (not the release), so the reviewed commit fixes which binary runs. Verification is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
+- **Regenerate the pins after build changes.** Changing the Go version/toolchain (`go.mod`) or build flags (`.goreleaser.yaml`) changes the binaries' hashes; run `make checksums` and commit the result, or the release checksum gate fails.
 - Concurrent hook invocations (parallel tool calls) are handled via per-invocation staging directories and atomic `mv`. Do not introduce shared mutable state.
 - `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from the public GitHub Release; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
 - **`exec` must not break fail-open.** The shim sets `shopt -s execfail` and `set +e` right before `exec`, so a binary that can't start (wrong architecture, blocked by policy) falls through to `exit 0` instead of bash's 126. `test/shim` covers this.
