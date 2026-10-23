@@ -38,8 +38,7 @@ const (
 // ServiceName is the service.name resource attribute stamped on emitted
 // spans. Per OTel semantics, service.name identifies the service that
 // *produces* the telemetry — that is the plugin itself, not the observed
-// agent runtime (which is carried by gen_ai.agent.name). Naming it per
-// runtime lets each adapter declare a distinct producer identity.
+// agent runtime (which is carried by gen_ai.agent.name).
 const ServiceName = "fiddler-coding-agent-plugin"
 
 // Adapt converts a Claude Code hook event name and payload into a neutral

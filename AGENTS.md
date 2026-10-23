@@ -8,7 +8,7 @@ The code is the authoritative source of truth for architecture and behavior. Rea
 
 - **Never commit secrets or tokens.** `.env.local` is gitignored and must stay that way.
 - The ingestion token (`AUTH_TOKEN` / `CLAUDE_PLUGIN_OPTION_AUTH_TOKEN`) is a scoped, ingest-only token, declared `"sensitive": true` in `plugin.json`. Treat it like a password: never commit it, never log it. When entered through the Claude Code dialog, Claude Code keeps it in its secure credential storage. Organizations may instead supply it in plain text via managed-settings `pluginConfigs` (see README). A keychain value overrides the managed one.
-- **Credentials come only from `userConfig`** (the dialog, `claude plugin install --config`, or `pluginConfigs`), which Claude Code exports to hooks as `CLAUDE_PLUGIN_OPTION_*`. Never read a token that is already on the user's machine (env vars such as `OTEL_EXPORTER_OTLP_HEADERS`, config files, another tool's state) and send it anywhere, not even as a fallback, and do not suggest it in docs or examples. Anthropic's plugin directory holds plugins that do this for manual review ("Uses a credential from the user's machine").
+- **Credentials come only from `userConfig`** (the dialog, `claude plugin install --config`, or `pluginConfigs`), which Claude Code exports to hooks as `CLAUDE_PLUGIN_OPTION_*`. Never read a token that is already on the user's machine (environment variables, config files, or another tool's state) and send it anywhere, not even as a fallback, and do not suggest it in docs or examples. Anthropic's plugin directory holds plugins that do this for manual review ("Uses a credential from the user's machine").
 - `internal/filelog` must **never** log content, secrets, or PII. Only IDs and counts are permitted. Grep for `filelog.` calls before adding new log statements.
 
 ## Fail-Open Invariant
@@ -56,7 +56,6 @@ A value in settings `env` only reaches the hook when no stored value exists for 
 Key traps:
 
 - **Bare token:** `AUTH_TOKEN` must be the bare token value with **no `Bearer ` prefix**. The plugin prepends `Bearer ` itself (`internal/otlp/export.go`). A leading `Bearer ` produces `Authorization: Bearer Bearer ...`.
-- **No `OTEL_*` fallback:** the `OTEL_EXPORTER_OTLP_*` / `OTEL_RESOURCE_ATTRIBUTES` fallback was removed in 0.7.0 so the plugin never reads a credential from the user's environment (see Security). Do not reintroduce it; `TestLoad_IgnoresOTelEnv` guards this. (Claude Code also strips all `OTEL_*` variables from hook subprocesses, because it uses them for its own telemetry.)
 - **Prompt suppression:** the `userConfig` dialog opens for any option not set in `pluginConfigs` (user, `--settings`, or managed settings) or in the keychain. Values in settings `env` (including `CLAUDE_PLUGIN_OPTION_*`) do not count. To roll out without prompts, set all three options in managed-settings `pluginConfigs["fiddler-coding-agent-plugin@fiddler-plugins"].options`. Claude Code accepts sensitive options there. Observed with Claude Code v2.1.285 using `claude plugin configure --json` against user, `--settings` and managed `pluginConfigs`; not documented by Anthropic and may change.
 
 Source: `internal/config/config.go`.
@@ -64,7 +63,7 @@ Source: `internal/config/config.go`.
 ## The Shim (`scripts/on-event.sh`)
 
 - **No `jq` dependency.** Reads `plugin.json` with `grep`/`sed`. Do not add a `jq` requirement.
-- **Reads no config or credential file.** Config reaches the binary only through the hook environment. Do not reintroduce sourcing `.env.local` (or any other file) from the shim.
+- **Reads no config or credential file.** Config reaches the binary only through the hook environment.
 - Checksum verification on binary download is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
 - Concurrent hook invocations (parallel tool calls) are handled via per-invocation staging directories and atomic `mv`. Do not introduce shared mutable state.
 - `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from the public GitHub Release; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
