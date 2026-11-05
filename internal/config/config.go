@@ -4,16 +4,16 @@
 // the environment directly. Config resolution lives here so the pipeline
 // stays runtime-agnostic.
 //
-// The endpoint, ingestion token, and application id come only from Claude
-// Code plugin userConfig, which Claude Code exports to hook processes as
-// CLAUDE_PLUGIN_OPTION_<KEY>. The token is a sensitive userConfig option, so
-// Claude Code keeps it in secure storage and the plugin only ever sees the
-// value the user chose to give it.
-//
-// Do not add fallbacks that read a credential already present on the user's
-// machine (OTEL_* env vars, config files, another tool's state). Anthropic's
-// plugin directory holds plugins that do so for manual review; the OTEL_*
-// fallback was removed in 0.7.0 for this reason.
+// The endpoint, ingestion token, and application id have a single source:
+// the plugin's userConfig options (OTLP_URL, AUTH_TOKEN, APP_ID in
+// plugin.json), which Claude Code exports to hook processes as
+// CLAUDE_PLUGIN_OPTION_<KEY>. Claude Code sets each value from, highest
+// first: keychain (sensitive dialog values) > managed pluginConfigs >
+// --settings pluginConfigs > user pluginConfigs (includes non-sensitive
+// dialog values) > settings env. A value in settings env only reaches the
+// hook when no stored value exists for that option; a stored value, even an
+// empty one, overrides it. (Based on reading Claude Code v2.1.285; not
+// documented by Anthropic.)
 package config
 
 import (
