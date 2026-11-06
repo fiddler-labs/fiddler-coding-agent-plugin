@@ -150,3 +150,32 @@ func TestReadVersion_FailsOpen(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(`{"type":"user","message":{"content":"hi"}}`+"\n"), 0o600))
 	assert.Equal(t, "", ReadVersion(path), "no version field -> empty")
 }
+
+// Given a transcript whose first entry is a single line over 1 MiB (e.g. a
+// first prompt with a pasted screenshot), when FirstEntryNano and ReadVersion
+// read it, then they still return that entry's timestamp and version instead
+// of giving up on the long line.
+func TestFirstEntryAndVersion_ReadPastLongFirstLine(t *testing.T) {
+	big := strings.Repeat("a", 2*1024*1024)
+	lines := "" +
+		`{"type":"user","timestamp":"2026-07-08T03:31:00.000Z","version":"2.1.0","message":{"content":"` + big + `"}}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-07-08T03:31:05.000Z","version":"2.1.0","message":{"id":"m"}}` + "\n"
+	path := filepath.Join(t.TempDir(), "long_first_line.jsonl")
+	require.NoError(t, os.WriteFile(path, []byte(lines), 0o600))
+
+	assert.Equal(t, nanosAt(t, "2026-07-08T03:31:00Z"), FirstEntryNano(path))
+	assert.Equal(t, "2.1.0", ReadVersion(path))
+}
+
+// Given a line over maxTranscriptLineBytes before the first timestamped and
+// versioned entry, when FirstEntryNano and ReadVersion read the transcript,
+// then the over-long line is skipped and the entry after it is used.
+func TestFirstEntryAndVersion_SkipOverLongLine(t *testing.T) {
+	oversized := strings.Repeat("x", maxTranscriptLineBytes+10)
+	after := `{"type":"user","timestamp":"2026-07-08T03:31:00.000Z","version":"2.1.0","message":{"content":"go"}}`
+	path := filepath.Join(t.TempDir(), "oversized_first_line.jsonl")
+	require.NoError(t, os.WriteFile(path, []byte(oversized+"\n"+after+"\n"), 0o600))
+
+	assert.Equal(t, nanosAt(t, "2026-07-08T03:31:00Z"), FirstEntryNano(path))
+	assert.Equal(t, "2.1.0", ReadVersion(path))
+}

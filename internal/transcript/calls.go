@@ -277,19 +277,31 @@ func readLine(r *bufio.Reader, maxLen int) (string, bool, error) {
 // over-long line instead of dropping every line after it (fail open). label
 // prefixes the warnings so the source reader is identifiable in the logs.
 func scanTranscriptLines(f io.Reader, label string, fn func(line string)) {
+	scanTranscriptLinesUntil(f, label, func(line string) bool {
+		fn(line)
+		return false
+	})
+}
+
+// scanTranscriptLinesUntil is scanTranscriptLines with an early exit: it stops
+// reading as soon as fn returns true. Readers that only need the first matching
+// entry use it so they share the same over-long-line handling.
+func scanTranscriptLinesUntil(f io.Reader, label string, fn func(line string) bool) {
 	reader := bufio.NewReaderSize(f, 256*1024)
 	for {
 		raw, tooLong, readErr := readLine(reader, maxTranscriptLineBytes)
 		if tooLong {
 			filelog.Warn("%s: skipped a line larger than %d bytes", label, maxTranscriptLineBytes)
 		} else if line := strings.TrimSpace(raw); line != "" {
-			fn(line)
+			if fn(line) {
+				return
+			}
 		}
 		if readErr != nil {
 			if readErr != io.EOF {
 				filelog.Warn("%s read error: %v", label, readErr)
 			}
-			break
+			return
 		}
 	}
 }

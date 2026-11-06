@@ -18,11 +18,9 @@
 package transcript
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fiddler-labs/fiddler-coding-agent-plugin/internal/filelog"
@@ -164,22 +162,19 @@ func FirstEntryNano(transcriptPath string) string {
 	}
 	defer func() { _ = f.Close() }()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
+	var first string
+	scanTranscriptLinesUntil(f, "transcript first entry", func(line string) bool {
 		var entry transcriptEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			continue
+			return false
 		}
 		if n := isoToUnixNano(entry.Timestamp); n != 0 {
-			return strconv.FormatInt(n, 10)
+			first = strconv.FormatInt(n, 10)
+			return true
 		}
-	}
-	return ""
+		return false
+	})
+	return first
 }
 
 // ReadVersion returns the Claude Code version that wrote the transcript, read
@@ -205,22 +200,16 @@ func ReadVersion(transcriptPath string) string {
 	}
 	defer func() { _ = f.Close() }()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
+	var version string
+	scanTranscriptLinesUntil(f, "transcript version", func(line string) bool {
 		var entry transcriptEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			continue
+			return false
 		}
-		if entry.Version != "" {
-			return entry.Version
-		}
-	}
-	return ""
+		version = entry.Version
+		return version != ""
+	})
+	return version
 }
 
 // --- Internal types matching the transcript JSONL shape ---
