@@ -29,12 +29,13 @@ These must line up on every release:
 | Git tag | `vX.Y.Z` |
 | `.claude-plugin/plugin.json` | `"version"` |
 | `.claude-plugin/marketplace.json` | plugin entry `source.ref` / `source.sha`, moved to the tag commit after the release |
+| `checksums.txt` | SHA-256 of the release binaries, built with the pinned Go toolchain |
 
-**Bump `plugin.json`, commit, then tag.** The shim derives its binary download target from `plugin.json`'s version, and Claude Code uses it as the update signal.
+**Bump `plugin.json` and run `make checksums`, commit, then tag.** The shim derives its binary download target from `plugin.json`'s version and verifies the download against the committed `checksums.txt`. Claude Code uses the version as the update signal.
 
 The marketplace entry pins a release commit (`source.sha`) and has no `version`; `plugin.json` at that commit decides it. Fresh installs and `claude plugin update` get nothing new until the pin moves. After the release smoke test passes, move `source.ref`/`source.sha` to the tag commit in a separate PR. Never pin a commit whose version has no published release: the shim would find no binary to download.
 
-The version-guard step in `.github/workflows/release.yml` fails the release before GoReleaser publishes if the tag does not match `plugin.json`, or if the marketplace entry sets a `version`.
+The version-guard step in `.github/workflows/release.yml` fails the release before GoReleaser publishes if the tag does not match `plugin.json`, or if the marketplace entry sets a `version`. The checksum gate after it fails the release if the built binaries don't match the committed `checksums.txt`.
 
 ## Plugin Name
 
@@ -67,7 +68,8 @@ Source: `internal/config/config.go`.
 
 - **No `jq` dependency.** Reads `plugin.json` with `grep`/`sed`. Do not add a `jq` requirement.
 - **Reads no config or credential file.** Config reaches the binary only through the hook environment. Do not reintroduce sourcing `.env.local` (or any other file) from the shim.
-- Checksum verification on binary download is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
+- The shim verifies the downloaded binary against `checksums.txt` committed in the repo (not the release), so the reviewed commit fixes which binary runs. Verification is **fail-closed** (integrity matters), but the overall hook still **fails open** (exit 0 if download fails).
+- **Regenerate `checksums.txt` in the release bump PR, before tagging.** Users install the commit the marketplace entry pins (`sha`), not `main`, so `checksums.txt` on `main` may lag behind Go changes between releases. The release workflow refuses to publish if the built binaries don't match. After the release smoke test passes, move the marketplace pin to the tag commit in a separate PR.
 - Concurrent hook invocations (parallel tool calls) are handled via per-invocation staging directories and atomic `mv`. Do not introduce shared mutable state.
 - `FIDDLER_BINARY_SOURCE`: `release` (default) downloads from the public GitHub Release; `local` uses `bin/` from `make build`. Unknown values are rejected (no silent fallback to network download).
 - **`exec` must not break fail-open.** The shim sets `shopt -s execfail` and `set +e` right before `exec`, so a binary that can't start (wrong architecture, blocked by policy) falls through to `exit 0` instead of bash's 126. `test/shim` covers this.
@@ -89,7 +91,7 @@ make dev               # export .env.local, then claude --plugin-dir . (builds f
 
 CI (`.github/workflows/checks.yml`) runs `go mod verify`, `go build`, `go vet` and `go test` on `ubuntu-latest` and `macos-latest` (with `-race`) and on `windows-latest` (x64) and `windows-11-arm` (ARM64), plus `gofmt`, `bash -n` on the shim, and `golangci-lint v2` for both the host and `GOOS=windows`.
 
-`build & test` is a gate job that passes only when every `test (<os>)` job passes, so adding or removing a platform doesn't change which checks a merge waits on. Keep the job names `build & test` and `lint & format` stable; merges into `main` depend on them.
+`build & test` is a gate job that passes only when every `test (<os>)` job passes and `checksums up to date` passes or is skipped (it runs only on PRs that change `checksums.txt` or `plugin.json`'s version), so adding or removing a platform doesn't change which checks a merge waits on. Keep the job names `build & test` and `lint & format` stable; merges into `main` depend on them.
 
 `test/shim` runs the real `scripts/on-event.sh` through bash (Git Bash on Windows; never WSL's `bash.exe`) with a local build and a fake OTLP endpoint. It covers trace export, fail-open exits, an unstartable binary, that the shim picks this machine's binary from the real `uname` (the Windows ARM64 detection on `windows-11-arm`), and (on macOS/Linux, with a fake `uname`) the Windows x64/ARM64 binary names. `FIDDLER_SHIM_RELEASE_TAG=vX.Y.Z go test ./test/shim/` also tests downloading a published release; `release.yml` runs that on all four platforms after every release (`.github/workflows/release-smoke.yml`).
 

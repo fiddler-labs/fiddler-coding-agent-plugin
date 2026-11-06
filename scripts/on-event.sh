@@ -4,8 +4,10 @@
 # Binary source is controlled by FIDDLER_BINARY_SOURCE (default: release):
 #
 #   release  Download the released binary from the public GitHub Release over
-#            HTTPS (curl, or wget if curl is unavailable). Cached in
-#            $CLAUDE_PLUGIN_DATA/bin/ so it is downloaded only once per version.
+#            HTTPS (curl, or wget if curl is unavailable), verify it against the
+#            SHA-256 checksums committed in the plugin (checksums.txt), and cache
+#            it in $CLAUDE_PLUGIN_DATA/bin/ so it is downloaded only once per
+#            version.
 #
 #   local    Use only a locally built binary (make build / make build-platform).
 #            Export this in the shell you start Claude Code from when
@@ -105,6 +107,20 @@ case "$SOURCE" in
       if [ -x "$VERSIONED_BINARY" ]; then
         BINARY="$VERSIONED_BINARY"
       elif command -v curl &>/dev/null || command -v wget &>/dev/null; then
+        # Expected hash comes from checksums.txt committed in the plugin, not
+        # from the release, so the reviewed commit fixes which binary may run.
+        # Look it up before any network call: a missing file or entry means we
+        # do not install (fail-closed).
+        PINNED="${PLUGIN_ROOT}/checksums.txt"
+        EXPECTED=""
+        if [ -f "$PINNED" ]; then
+          EXPECTED=$(grep "  ${ASSET}$" "$PINNED" | cut -d' ' -f1 || true)
+        fi
+        if [ -z "$EXPECTED" ]; then
+          echo "on-event: no pinned checksum for ${ASSET} in the plugin's checksums.txt; not installing (fail-closed)" >&2
+          exit 0
+        fi
+
         # Download from the public GitHub Release.
         if ! mkdir -p "$BIN_DIR" 2>/dev/null; then
           echo "on-event: could not create ${BIN_DIR}; doing nothing" >&2
@@ -127,33 +143,23 @@ case "$SOURCE" in
 
         if download "${BASE_URL}/${ASSET}" "${STAGE_DIR}/${ASSET}"; then
 
-          # Fail closed: install only if the checksum is present AND verified.
-          # If checksums.txt can't be downloaded, has no entry for this asset,
-          # or no sha256 tool is available, we do NOT install the binary —
+          # Fail closed: install only if the download matches the pinned hash.
+          # Without a sha256 tool we cannot verify, so we do NOT install —
           # integrity is the whole point of this step.
           CHECKSUM_OK=false
-          if download "${BASE_URL}/checksums.txt" "${STAGE_DIR}/checksums.txt"; then
+          ACTUAL=""
+          if command -v sha256sum &>/dev/null; then
+            ACTUAL=$(sha256sum "${STAGE_DIR}/${ASSET}" | cut -d' ' -f1)
+          elif command -v shasum &>/dev/null; then
+            ACTUAL=$(shasum -a 256 "${STAGE_DIR}/${ASSET}" | cut -d' ' -f1)
+          fi
 
-            # `|| true`: a missing entry must not trip `set -e` (fail open).
-            EXPECTED=$(grep "  ${ASSET}$" "${STAGE_DIR}/checksums.txt" | cut -d' ' -f1 || true)
-            ACTUAL=""
-            if command -v sha256sum &>/dev/null; then
-              ACTUAL=$(sha256sum "${STAGE_DIR}/${ASSET}" | cut -d' ' -f1)
-            elif command -v shasum &>/dev/null; then
-              ACTUAL=$(shasum -a 256 "${STAGE_DIR}/${ASSET}" | cut -d' ' -f1)
-            fi
-
-            if [ -z "$EXPECTED" ]; then
-              echo "on-event: no checksum entry for ${ASSET} in checksums.txt; not installing" >&2
-            elif [ -z "$ACTUAL" ]; then
-              echo "on-event: no sha256sum/shasum available to verify checksum; not installing" >&2
-            elif [ "$ACTUAL" != "$EXPECTED" ]; then
-              echo "on-event: checksum mismatch (expected ${EXPECTED}, got ${ACTUAL}); not installing" >&2
-            else
-              CHECKSUM_OK=true
-            fi
+          if [ -z "$ACTUAL" ]; then
+            echo "on-event: no sha256sum/shasum available to verify checksum; not installing" >&2
+          elif [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "on-event: checksum mismatch (expected ${EXPECTED}, got ${ACTUAL}); not installing" >&2
           else
-            echo "on-event: could not download checksums.txt; not installing (fail-closed)" >&2
+            CHECKSUM_OK=true
           fi
 
           if [ "$CHECKSUM_OK" = true ]; then

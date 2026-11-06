@@ -2,10 +2,12 @@ name: release smoke
 
 # Tests a published release on every platform: runs the real hook shim in
 # release mode, which downloads the release asset from GitHub, verifies it
-# against checksums.txt, caches and runs it, and checks that a trace reaches a
-# local fake endpoint. release.yml calls this after GoReleaser publishes, for
-# every tag including release candidates. It can also be run by hand (Actions
-# tab or `gh workflow run`) once this file is on the default branch.
+# against the committed checksums.txt, caches and runs it, and checks that a
+# trace reaches a local fake endpoint. It also checks that the shim refuses to
+# install the asset when the pinned checksum is missing or wrong. release.yml
+# calls this after GoReleaser publishes, for every tag including release
+# candidates. It can also be run by hand (Actions tab or `gh workflow run`)
+# once this file is on the default branch.
 # See docs/release-runbook.md.
 on:
   workflow_call:
@@ -37,6 +39,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -44,4 +48,4 @@ jobs:
       - name: Download, verify and run the release binary through the shim
         env:
           FIDDLER_SHIM_RELEASE_TAG: ${{ inputs.tag }}
-        run: go test -count=1 -v -run 'TestShim_ReleaseDownload' ./test/shim/
+        run: go test -count=1 -v -run 'TestShim_Release' ./test/shim/

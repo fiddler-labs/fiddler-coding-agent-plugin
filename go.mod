@@ -1,6 +1,8 @@
 module github.com/fiddler-labs/fiddler-coding-agent-plugin
 
-go 1.25
+go 1.27
+
+toolchain go1.27.3
 
 require github.com/stretchr/testify v1.12.1
 
