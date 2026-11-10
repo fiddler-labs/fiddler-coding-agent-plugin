@@ -6,14 +6,12 @@ A coding-agent plugin that captures per-turn OpenTelemetry traces and delivers t
 
 - Claude Code on one of:
   - macOS or Linux (including WSL), on x64 or ARM64
-  - Windows 10/11 on x64 or ARM64, with [Git for Windows](https://gitforwindows.org/) installed (**preview**; see [Windows](#windows-preview))
+  - Windows 10/11 on x64 or ARM64, with [Git for Windows](https://gitforwindows.org/) installed (see [Windows](#windows))
 - `curl` or `wget` (preinstalled on macOS and most Linux distributions, and included with Git for Windows)
 
-### Windows (preview)
+### Windows
 
 Claude Code runs plugin hooks through Git Bash when Git for Windows is installed. This plugin's hook is a bash script, so Git for Windows is required. Without it, Claude Code runs hooks through PowerShell instead, the plugin's hooks fail to start, and no telemetry is sent.
-
-The Windows binary is **not yet code-signed**. Like every release binary, it is downloaded from this repository's GitHub Releases and checked against the SHA-256 checksums committed in this repository before it runs. Machines with strict application-control policies (AppLocker, App Control for Business, Smart App Control) or endpoint security tools may block an unsigned program in the user's profile directory. If that happens, the plugin sends no telemetry, but Claude Code keeps working normally: the hooks never block a session. Signed Windows binaries are planned for a later release.
 
 The binary is cached as `on-event-windows-<arch>-<version>.exe` in the `bin` folder of the plugin's data directory ([`CLAUDE_PLUGIN_DATA`](https://code.claude.com/docs/en/plugins-reference#environment-variables)), as on macOS and Linux.
 
@@ -120,7 +118,7 @@ The plugin registers hooks for Claude Code session, prompt, tool, permission, su
 
 ### Downloads
 
-On first use of each plugin version, the script downloads the plugin's prebuilt binary for your OS and CPU (macOS, Linux, or Windows; x64 or ARM64) from this repository's GitHub Releases (`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases`) over HTTPS. It verifies the binary's SHA-256 checksum against the `checksums.txt` committed in this repository and refuses to run a binary that doesn't match. The verified binary is cached in the plugin's data directory, so it is downloaded once per version. The binary is built from the Go source in this repository.
+On first use of each plugin version, the script downloads the plugin's prebuilt binary for your OS and CPU (macOS, Linux, or Windows; x64 or ARM64) from this repository's GitHub Releases (`https://github.com/fiddler-labs/fiddler-coding-agent-plugin/releases`) over HTTPS. It verifies the binary's SHA-256 checksum against the `checksums.txt` committed in this repository and refuses to install a binary that doesn't match. The verified binary is cached in the plugin's data directory, so it is downloaded and verified once per version. The binary is built from the Go source in this repository.
 
 ### Data sent to Fiddler
 
