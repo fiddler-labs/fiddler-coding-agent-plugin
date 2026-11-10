@@ -11,7 +11,8 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fiddler-labs/fiddler-coding-agent-plugin.git",
-        "sha": "6b1c1794c1f72d424ae841ac0eb3ce14a25b54cf"
+        "ref": "v0.9.0",
+        "sha": "f3e68916fd0b47629df7e9fcb4d78203367f8270"
       },
       "description": "OpenTelemetry observability for coding agent sessions.",
       "author": {
